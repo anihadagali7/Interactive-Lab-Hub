@@ -89,8 +89,11 @@ drew. Do real research. You are looking less for trivia than for the *shape of
 the interaction*:
 
 - What inputs are available to the user? What responses does the work give?
+  - The user is able to 
 - Who is present, and how does the piece color the relationships between them?
 - What is the piece famous for? What are its strengths and its weaknesses?
+  - The piece is famous for reminding users about taking their medication. It also helps with refilling the medication prescription by connecting the patient to a pharmacy.   - Strengths: It addresses the behavior of the users not taking their medication timely. It will also send a phone call or email after a 2 hour window, if the user has not opened the medication.
+  - Weaknesses: The device is bulky, where you have to carry it on top of the existing pill bottle. There is also the question of battery life, and how long it lasts before needing a recharge. Do users also need multiple devices for all of their medications bottles? It also doesn't tell users the quantity of the medications, if more than one.
 
   Sometimes the details of how the interaction worked are lost in history. Try filling it in with your imagination!
 
