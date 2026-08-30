@@ -115,7 +115,7 @@ For your masterwork, reconstruct the interaction as a scene:
 - **Activity:** What is happening between the players and the light?
   - The light gets triggered based on preset times, and the player then has to open the pill bottle in order to stop the notifications from occurring. 
 - **Goals:** What is each player trying to do?
-  - The pill bottle cap is trying remind the user to open the bottle
+  - The pill bottle cap is trying to remind the user to open the bottle
 
 **Describe your setting, players, activity, and goals here.**
 
@@ -154,11 +154,15 @@ is doing what you've scripted — a person can wave a flashlight, or you can nar
 it aloud.
 
 **Are there things that seemed better on paper than when acted out?**
+Yes, for the acting out, we had to ensure that the pill bottle was in sight so we can open it and visually see the reminder. Made us realize that although its a great feature, maybe the phone call reminder is the more likely outcome.
 
 **Did new ideas about the piece surface once you were on your feet?**
+Maybe if the GlowCap emitted some sort of noise, it could be hear from anywhere in the house, not just if they are in the same room and looking at the product.
 
 **Are there key moments in the interaction where things could go in a different direction?**
 Iterate your storyboards to capture key non-sequential aspects of the interaction. 
+
+Yes. If the user is not in the same room, then they are not able to see the GlowCap's light shine. If they are away from the house, any reminder will not help, as they are not accessible to the pill bottle. Or even if they are accessible, but they do not have service to receive the phone call or email, then they will also not get reminded.
 
 ## Part C. Prototype the Light (light first!)
 
