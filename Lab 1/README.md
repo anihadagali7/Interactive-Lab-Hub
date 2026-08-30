@@ -128,7 +128,24 @@ and the people around it. If you're new to storyboarding, read
 
 Use the storyboards to decide what interaction to prototype.
 
+### Storyboard 1 - Reminder Works First Time  
+Persona: Patient, Harold  
+Scenario: Harold gets reminded to take pills  
+![Harold is working](Storyboard1.png)  
+
+### Storyboard 2 - Second Escalation of Call  
+Persona: Patient, Harold  
+Scenario: Harold forgets pills even with first reminder  
+![GlowCap is going off in another room](Storyboard2.png)  
+
+### Storyboard 3 - GlowCap automatically refills  
+Persona: Patient, Harold  
+Scenario: Harold ran out of his prescription  
+![Pharmacy](Storyboard3.png)  
+
 **Summarize the feedback you got here.**
+
+first interaction seems like the most common.
 
 ## Part B. Act out the Interaction
 
