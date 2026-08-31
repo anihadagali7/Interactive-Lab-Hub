@@ -94,7 +94,8 @@ the interaction*:
 - Who is present, and how does the piece color the relationships between them?
   - The owner of the pills, the pill bottle, and the pharmacy.
 - What is the piece famous for? What are its strengths and its weaknesses?
-  - The piece is famous for reminding users about taking their medication. It also helps with refilling the medication prescription by connecting the patient to a pharmacy.   - Strengths: It addresses the behavior of the users not taking their medication timely. It will also send a phone call or email after a 2 hour window, if the user has not opened the medication.
+  - The piece is famous for reminding users about taking their medication. It also helps with refilling the medication prescription by connecting the patient to a pharmacy.
+  - Strengths: It addresses the behavior of the users not taking their medication timely. It will also send a phone call or email after a 2 hour window, if the user has not opened the medication.
   - Weaknesses: There is also the question of battery life, and how long it lasts before needing a recharge. Do users also need multiple devices for all of their medications bottles? It also doesn't tell users the quantity of the medications, if more than one. It seems like you can order refills by mistake or when you can't afford it.
 
   Sometimes the details of how the interaction worked are lost in history. Try filling it in with your imagination!
@@ -102,13 +103,15 @@ the interaction*:
 **Describe your masterwork here, in your own words. What is the core interaction
 someone would recognize it by?**
 
+The core interaction someone can recognize it by is if the cap of a medication pill bottle lights up, and because of the light blinking, the user decides to take their medications. 
+
 ## Part A. Plan
 
 For your masterwork, reconstruct the interaction as a scene:
 
 - **Setting:** Where and when does this interaction happen? (a jungle, a kitchen,
   a spaceship corridor, a nightclub, a harbor at night)
-  - In the owner's house
+  - In the owner's house, and it could happen at anytime, which is dependent on the set 'alarms' by the user.
 - **Players:** Who is involved? Who else is present? Think through everyone in
   the setting, not just the primary user.
   - The pill taker
@@ -145,7 +148,7 @@ Scenario: Harold ran out of his prescription
 
 **Summarize the feedback you got here.**
 
-first interaction seems like the most common.
+first interaction seems like the most common. Although based on the persona's availability, scenario 2 could be more likely based on their access to the product.
 
 ## Part B. Act out the Interaction
 
