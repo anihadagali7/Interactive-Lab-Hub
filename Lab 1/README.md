@@ -236,13 +236,13 @@ wasn't clear.
 **Who were the other groups you kibitzed with? Add links to their project pages here.**
 **Summarize the feedback you got from your partners here.**
 
-Critique 1 (https://github.com/ammarsyed/Interactive-Lab-Hub/blob/Fall2026/Lab%201/README.md): 
+Critique 1 (Ammar Syed - https://github.com/ammarsyed/Interactive-Lab-Hub/blob/Fall2026/Lab%201/README.md): 
 I think the video is really nice and well-recorded, and the storyboards are well drawn and easy to understand. I can tell that the main goal of the device is to remind people when it’s time to take their medication. Another thing I liked was that the device sends an alert to the pharmacy when the pill count is low. What was not clear to me was whether that feature is something the device already does or a possible future idea.
 
 Critique 2 (Abiola Bolaji):
 The video is nice, only thing I could say is it might be better to record from an angle where harold is looking at his phone and sees the pill light. If you want the audience to see you might have to do it from an angle that captures both him and the phone screen
 
-Critique 3 (Pallavi Srinivas):
+Critique 3 (Pallavi Srinivas - https://github.com/pallavi-srinivas/Interactive-Lab-Hub/blob/Fall2026/Lab%201/README.md):
 The GlowCap masterwork was very clear and conveyed the purpose of this light source very well. The reenactment was also very helpful to watch: the person realizing that they had to take their medicine because of the light is a really modern problem that this tool addresses head on. The only critique I have is to make the storyboards more detailed (as per the tutorial on Monday!).
 
 ## Remix, Update, or Critique the Master
