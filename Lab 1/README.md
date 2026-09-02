@@ -245,6 +245,9 @@ The video is nice, only thing I could say is it might be better to record from a
 Critique 3 (Pallavi Srinivas - https://github.com/pallavi-srinivas/Interactive-Lab-Hub/blob/Fall2026/Lab%201/README.md):
 The GlowCap masterwork was very clear and conveyed the purpose of this light source very well. The reenactment was also very helpful to watch: the person realizing that they had to take their medicine because of the light is a really modern problem that this tool addresses head on. The only critique I have is to make the storyboards more detailed (as per the tutorial on Monday!).
 
+Critique 4 (Monica Wei - https://github.com/Tzuyi-Wei/Interactive-Lab-Hub/tree/Fall2026/Lab%201):
+It has a complete context and storyline, so I guessed it on the first try. A suggested direction might be to change the color according to different situations, but overall it's excellent!
+
 ## Remix, Update, or Critique the Master
 
 Now that you understand your masterwork from the inside, respond to it. Do the
