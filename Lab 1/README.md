@@ -4,7 +4,12 @@ _This project is to be done in teams of 2._
 
 **NAME OF BOTH COLLABORATOR(S) HERE**
 
+Ani Hadagali (ah2495)
+Jonathan Tumalle (jrt285)
+
 **THE MASTERWORK YOU DREW FROM THE HAT:**
+
+GlowCaps
 
 ---
 
@@ -84,13 +89,21 @@ drew. Do real research. You are looking less for trivia than for the *shape of
 the interaction*:
 
 - What inputs are available to the user? What responses does the work give?
+  - The user is able to attach their pill bottle to the cap. The user can reset the timer for the notification. User has to register their phone number and/or email to get reminders.
+  - The responses are light and sound, phone calls, and email. Get automatic refills sent to the pharmacy by a push of a button.
 - Who is present, and how does the piece color the relationships between them?
+  - The owner of the pills, the pill bottle, and the pharmacy.
 - What is the piece famous for? What are its strengths and its weaknesses?
+  - The piece is famous for reminding users about taking their medication. It also helps with refilling the medication prescription by connecting the patient to a pharmacy.
+  - Strengths: It addresses the behavior of the users not taking their medication timely. It will also send a phone call or email after a 2 hour window, if the user has not opened the medication.
+  - Weaknesses: There is also the question of battery life, and how long it lasts before needing a recharge. Do users also need multiple devices for all of their medications bottles? It also doesn't tell users the quantity of the medications, if more than one. It seems like you can order refills by mistake or when you can't afford it.
 
   Sometimes the details of how the interaction worked are lost in history. Try filling it in with your imagination!
 
 **Describe your masterwork here, in your own words. What is the core interaction
 someone would recognize it by?**
+
+The core interaction someone can recognize it by is if the cap of a medication pill bottle lights up, and because of the light blinking, the user decides to take their medications. 
 
 ## Part A. Plan
 
@@ -98,10 +111,14 @@ For your masterwork, reconstruct the interaction as a scene:
 
 - **Setting:** Where and when does this interaction happen? (a jungle, a kitchen,
   a spaceship corridor, a nightclub, a harbor at night)
+  - In the owner's house, and it could happen at anytime, which is dependent on the set 'alarms' by the user.
 - **Players:** Who is involved? Who else is present? Think through everyone in
   the setting, not just the primary user.
+  - The pill taker
 - **Activity:** What is happening between the players and the light?
+  - The light gets triggered based on preset times, and the player then has to open the pill bottle in order to stop the notifications from occurring. 
 - **Goals:** What is each player trying to do?
+  - The pill bottle cap is trying to remind the user to open the bottle
 
 **Describe your setting, players, activity, and goals here.**
 
@@ -114,7 +131,24 @@ and the people around it. If you're new to storyboarding, read
 
 Use the storyboards to decide what interaction to prototype.
 
+### Storyboard 1 - Reminder Works First Time  
+Persona: Patient, Harold  
+Scenario: Harold gets reminded to take pills  
+![Harold is working](Storyboard1.png)  
+
+### Storyboard 2 - Second Escalation of Call  
+Persona: Patient, Harold  
+Scenario: Harold forgets pills even with first reminder  
+![GlowCap is going off in another room](Storyboard2.png)  
+
+### Storyboard 3 - GlowCap automatically refills  
+Persona: Patient, Harold  
+Scenario: Harold ran out of his prescription  
+![Pharmacy](Storyboard3.png)  
+
 **Summarize the feedback you got here.**
+
+first interaction seems like the most common. Although based on the persona's availability, scenario 2 could be more likely based on their access to the product.
 
 ## Part B. Act out the Interaction
 
@@ -123,11 +157,15 @@ is doing what you've scripted — a person can wave a flashlight, or you can nar
 it aloud.
 
 **Are there things that seemed better on paper than when acted out?**
+Yes, for the acting out, we had to ensure that the pill bottle was in sight so we can open it and visually see the reminder. Made us realize that although its a great feature, maybe the phone call reminder is the more likely outcome.
 
 **Did new ideas about the piece surface once you were on your feet?**
+Maybe if the GlowCap emitted some sort of noise, it could be hear from anywhere in the house, not just if they are in the same room and looking at the product.
 
 **Are there key moments in the interaction where things could go in a different direction?**
 Iterate your storyboards to capture key non-sequential aspects of the interaction. 
+
+Yes. If the user is not in the same room, then they are not able to see the GlowCap's light shine. If they are away from the house, any reminder will not help, as they are not accessible to the pill bottle. Or even if they are accessible, but they do not have service to receive the phone call or email, then they will also not get reminded.
 
 ## Part C. Prototype the Light (light first!)
 
@@ -176,6 +214,8 @@ who doesn't should come away understanding what it's famous for. How might you i
 
 **Include your video here.**
 
+https://github.com/user-attachments/assets/4b4447e1-092a-4e35-b351-ad3609505e51
+
 **Please indicate who you collaborated with on this lab.** Be generous in
 acknowledging their contributions, and credit any other influences (YouTube,
 Github, Twitter, a friend who lent you a lamp) that informed your recreation.
@@ -195,6 +235,18 @@ wasn't clear.
 
 **Who were the other groups you kibitzed with? Add links to their project pages here.**
 **Summarize the feedback you got from your partners here.**
+
+Critique 1 (Ammar Syed - https://github.com/ammarsyed/Interactive-Lab-Hub/blob/Fall2026/Lab%201/README.md): 
+I think the video is really nice and well-recorded, and the storyboards are well drawn and easy to understand. I can tell that the main goal of the device is to remind people when it’s time to take their medication. Another thing I liked was that the device sends an alert to the pharmacy when the pill count is low. What was not clear to me was whether that feature is something the device already does or a possible future idea.
+
+Critique 2 (Abiola Bolaji):
+The video is nice, only thing I could say is it might be better to record from an angle where harold is looking at his phone and sees the pill light. If you want the audience to see you might have to do it from an angle that captures both him and the phone screen
+
+Critique 3 (Pallavi Srinivas - https://github.com/pallavi-srinivas/Interactive-Lab-Hub/blob/Fall2026/Lab%201/README.md):
+The GlowCap masterwork was very clear and conveyed the purpose of this light source very well. The reenactment was also very helpful to watch: the person realizing that they had to take their medicine because of the light is a really modern problem that this tool addresses head on. The only critique I have is to make the storyboards more detailed (as per the tutorial on Monday!).
+
+Critique 4 (Monica Wei - https://github.com/Tzuyi-Wei/Interactive-Lab-Hub/tree/Fall2026/Lab%201):
+It has a complete context and storyline, so I guessed it on the first try. A suggested direction might be to change the color according to different situations, but overall it's excellent!
 
 ## Remix, Update, or Critique the Master
 
