@@ -275,7 +275,7 @@ prototype are great too.**
 
 ### Video
 
-<video src="lab1bVideoExample.mov" width="600" controls />
+<video src="lab1bVideoExample.mp4" width="100%" controls></video>
 
 ---
 
