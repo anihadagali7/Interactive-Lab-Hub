@@ -269,6 +269,10 @@ your response engages with what your master was really doing.
 **Document everything here — especially the storyboard and video. Photos of the
 prototype are great too.**
 
+We wanted to update the design and add more features to the product. We saw some of the weaknesses that you have to consistently 'see' the light go off from the GlowCap to know that it is time to take your medication. We fixed this by adding a ringer to the device so the user can know it is time, even when they are not in the room. 
+
+Another feature we wanted to add was removing the need for buying individual GlowCaps, and instead allowing them to stock an automatic dispenser. The machine would dispense the correct amount of medication, the right type of medication, at the set times.
+
 <img width="2500" height="2019" alt="Lab1b_storyboard" src="https://github.com/user-attachments/assets/217fbc2c-f290-40dd-84ab-0a71ea739099" />
 
 
