@@ -275,6 +275,10 @@ Another feature we wanted to add was removing the need for buying individual Glo
 
 <img width="2500" height="2019" alt="Lab1b_storyboard" src="https://github.com/user-attachments/assets/217fbc2c-f290-40dd-84ab-0a71ea739099" />
 
+### Video
+
+https://github.com/user-attachments/assets/2c5dc666-9daf-4782-8048-9f4ecda6ea65
+
 
 ---
 
