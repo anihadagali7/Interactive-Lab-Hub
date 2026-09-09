@@ -269,8 +269,13 @@ your response engages with what your master was really doing.
 **Document everything here — especially the storyboard and video. Photos of the
 prototype are great too.**
 
+### Storyboard
+
 <img width="2500" height="2019" alt="Lab1b_storyboard" src="https://github.com/user-attachments/assets/217fbc2c-f290-40dd-84ab-0a71ea739099" />
 
+### Video
+
+<video src="lab1bVideoExample.mov" width="600" controls />
 
 ---
 
