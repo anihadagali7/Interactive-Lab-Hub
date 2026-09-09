@@ -275,7 +275,7 @@ prototype are great too.**
 
 ### Video
 
-<video src="lab1bVideoExample.mp4" width="100%" controls></video>
+https://github.com/user-attachments/assets/29ae627b-3c32-43cf-85b2-85d977012335
 
 ---
 
