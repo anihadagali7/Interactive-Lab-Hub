@@ -1,3 +1,4 @@
+<img width="1640" height="757" alt="IMG_0014" src="https://github.com/user-attachments/assets/8a45bd9f-5015-43f1-a48d-c758bf138ba7" />
 # Interactive Prototyping: The Clock of Pi
 **NAMES OF COLLABORATORS HERE**
 
@@ -200,7 +201,11 @@ We strongly discourage literal digital or analog clock display: Be creative.
 
 
 ** Insert ideas, sketches, [Verplank diagrams](https://ccrma.stanford.edu/courses/250a-fall-2004/IDSketchbok.pdf)), storyboards for your ideas **
+- Daylight Clock: The display shows the proportion of daylight remaining instead of numeric time. A light sensor could make the device respond to actual brightness.
+- Across the year, show the changing daylight duration as the main signal: short winter arcs, long summer arcs, with spring and fall in between.
+- Use the Pi’s date and time, plus a sunrise/sunset API or astronomical library, to calculate the values.
 
+<img width="1640" height="757" alt="IMG_0014" src="https://github.com/user-attachments/assets/576d70a7-4bba-46ad-952a-502189b71a40" />
 
 
 **Put the names of the people you gave feedback to here. (Even better, add links to their repos here!)**
