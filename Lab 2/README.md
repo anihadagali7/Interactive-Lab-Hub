@@ -209,6 +209,9 @@ We strongly discourage literal digital or analog clock display: Be creative.
 
 **Put the names of the people you gave feedback to here. (Even better, add links to their repos here!)**
 
+Feedback:
+- Jonathan Tumalle (jrt285) : The idea of a sun percentage clock is nice to have an idea of how much daytime there's left. It would be nice to see how much daylight you're losing compared to the day before so that users can make the most of the day.
+
 # Lab 2 Part 2
 
 ## Prep 
