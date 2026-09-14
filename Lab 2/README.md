@@ -1,4 +1,3 @@
-<img width="1640" height="757" alt="IMG_0014" src="https://github.com/user-attachments/assets/8a45bd9f-5015-43f1-a48d-c758bf138ba7" />
 # Interactive Prototyping: The Clock of Pi
 **NAMES OF COLLABORATORS HERE**
 
