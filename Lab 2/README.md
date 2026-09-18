@@ -213,10 +213,8 @@ Feedback:
 - Jonathan Tumalle (jrt285) : The idea of a sun percentage clock is nice to have an idea of how much daytime there's left. It would be nice to see how much daylight you're losing compared to the day before so that users can make the most of the day.
 
 - Ammar Syed: The daylight clock is a super creative alternative to simply displaying the current exact numeric time and it could really help users have a more contextual understanding of how much usable daylight is still left in the day. It's especially cool that this visualization will change throughout the year as there's more daylight in summer months and less in winter months, and the user can feel the seasonal changes happening.
-
-I think combining sunset and sunrise calculations alongside a light sensor could make the clock more accurate to the user's actual environment. Another concern I have is that indoor lighting or cloudy weather could lead to the sensor having inaccurate readings so there likely should really be a calculated daylight percentage of some sort as a main display, with the brightness or color as a secondary effect.
-
-I think you can also use the buttons to perhaps show the exact calculation or sunrise and sunset times if the user wants more details or more precision. 
+  - I think combining sunset and sunrise calculations alongside a light sensor could make the clock more accurate to the user's actual environment. Another concern I have is that indoor lighting or cloudy weather could lead to the sensor having inaccurate readings so there likely should really be a calculated daylight percentage of some sort as a main display, with the brightness or color as a secondary effect.
+  - I think you can also use the buttons to perhaps show the exact calculation or sunrise and sunset times if the user wants more details or more precision. 
 
 # Lab 2 Part 2
 
