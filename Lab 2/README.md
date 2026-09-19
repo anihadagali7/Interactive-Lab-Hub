@@ -260,6 +260,7 @@ Do take advantage of having done the previous iteration to refine and simplify y
 
 \*\*\***Take a video of your PiClock.**\*\*\*
 
+https://github.com/anihadagali7/Interactive-Lab-Hub/blob/anihadagali7-Aug26-Lab/Lab%202/IMG_6030.MOV
 
 As always, make sure you document contributions and ideas from others (and AI) explicitly in your writeup.
 
