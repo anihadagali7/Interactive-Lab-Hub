@@ -8,6 +8,7 @@ adafruit-circuitpython-rgb-display==3.14.1
 adafruit-circuitpython-typing==1.12.1
 Adafruit-PlatformDetect==3.82.0
 Adafruit-PureIO==1.1.11
+astral==3.2
 binho-host-adapter==0.1.6
 lgpio==0.2.2.0
 pillow==11.3.0
