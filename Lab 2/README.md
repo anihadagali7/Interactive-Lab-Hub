@@ -214,7 +214,10 @@ Feedback:
 
 - Ammar Syed: The daylight clock is a super creative alternative to simply displaying the current exact numeric time and it could really help users have a more contextual understanding of how much usable daylight is still left in the day. It's especially cool that this visualization will change throughout the year as there's more daylight in summer months and less in winter months, and the user can feel the seasonal changes happening.
   - I think combining sunset and sunrise calculations alongside a light sensor could make the clock more accurate to the user's actual environment. Another concern I have is that indoor lighting or cloudy weather could lead to the sensor having inaccurate readings so there likely should really be a calculated daylight percentage of some sort as a main display, with the brightness or color as a secondary effect.
-  - I think you can also use the buttons to perhaps show the exact calculation or sunrise and sunset times if the user wants more details or more precision. 
+  - I think you can also use the buttons to perhaps show the exact calculation or sunrise and sunset times if the user wants more details or more precision.
+ 
+- Pallavi Srinivas: This is awesome because I think it would allow people to take upon routines that would fit their bodies and allow them to naturally wake up and be functional. I'm curious to see how this would work considering brightness could be determined through a wide variety of factors including but not limited to flashlights, overhead lights, sunlight, etc.
+- Abiola Bolaji: I think this idea is cool. I like the change in representation. Only thing I would say is that it would be nice to have a message on the pi that signified which seasonal period the user was in so it can be more honest about the amount of sunlight expected. It might also be nice to showcase the location of the user too.
 
 # Lab 2 Part 2
 
