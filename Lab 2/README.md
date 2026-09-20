@@ -261,6 +261,8 @@ Do take advantage of having done the previous iteration to refine and simplify y
 
 \*\*\***Put a copy of your code in your Lab 2 Github repo.**\*\*\*
 
+The clock is in daylight_clock.py
+
 \*\*\***Take a video of your PiClock.**\*\*\*
 
 https://github.com/anihadagali7/Interactive-Lab-Hub/blob/anihadagali7-Aug26-Lab/Lab%202/IMG_6030.MOV
