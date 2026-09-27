@@ -3,11 +3,11 @@
 **NAMES OF COLLABORATORS HERE**
 
 Ani Hadagali (ah2495)
-Jonathan Tumalle (jrt285) 
+Jonathan Tumalle (jrt285)
 
 [![Watch the video](https://user-images.githubusercontent.com/1128669/135009222-111fe522-e6ba-46ad-b6dc-d1633d21129c.png)](https://youtu.be/LZ0VJClIlRI?si=Yy84mcyVYuVV19mn)
 
-In this lab, we want you to design interaction with a speech-enabled device — something that listens and talks to you. This device can do anything *but* control lights (since we already did that in Lab 1). First, we want you to storyboard what you imagine the conversational interaction to be like. Then you will use wizarding techniques to elicit examples of what people might say, ask, or respond. We then want you to use the examples collected from at least two other people to inform the redesign of the device.
+In this lab, we want you to design interaction with a speech-enabled device — something that listens and talks to you. This device can do anything _but_ control lights (since we already did that in Lab 1). First, we want you to storyboard what you imagine the conversational interaction to be like. Then you will use wizarding techniques to elicit examples of what people might say, ask, or respond. We then want you to use the examples collected from at least two other people to inform the redesign of the device.
 
 We will focus on **audio** as the main modality for interaction to start; these general techniques can be extended to **video**, **haptics** or other interactive mechanisms in the second part of the Lab.
 
@@ -25,7 +25,7 @@ Students who have not already received a web camera will receive their Webcam an
 
 As always, pull updates from the class Interactive-Lab-Hub to both your Pi and your own GitHub repo.
 
-**\[recommended\]** Option 1: On the Pi, `cd` to your `Interactive-Lab-Hub`, pull the updates from upstream (class lab-hub) and push the updates back to your own GitHub repo. You will need the *personal access token* for this.
+**\[recommended\]** Option 1: On the Pi, `cd` to your `Interactive-Lab-Hub`, pull the updates from upstream (class lab-hub) and push the updates back to your own GitHub repo. You will need the _personal access token_ for this.
 
 ```
 pi@ixe00:~$ cd Interactive-Lab-Hub
@@ -91,7 +91,7 @@ Your Pi can speak in several quite different ways, and the differences are audib
 
 You can run these `.sh` files by typing `./filename`, and read one with `cat filename`. You can also play audio files directly with `aplay filename` — try `aplay lookdave.wav`.
 
-These are all decades-old technology and they sound like it. `espeak-ng` is a *formant synthesizer*: it generates speech from an acoustic model of the vocal tract, which is why it sounds robotic but also why the whole thing fits in a couple of megabytes and responds instantly. `festival` is *concatenative*: they stitch together recorded fragments of a real speaker, which sounds more human but breaks audibly at the seams.
+These are all decades-old technology and they sound like it. `espeak-ng` is a _formant synthesizer_: it generates speech from an acoustic model of the vocal tract, which is why it sounds robotic but also why the whole thing fits in a couple of megabytes and responds instantly. `festival` is _concatenative_: they stitch together recorded fragments of a real speaker, which sounds more human but breaks audibly at the seams.
 
 ### Neural TTS with Piper
 
@@ -144,6 +144,28 @@ The real time factor of the two models I chose:
 Accuracy improvements stop being worth the delay if the text already captures the words said with tolerance for some grammatical errors. In the example, the output of the small was "Hey, this is Jonathan. I hope you're having a great day." The tiny transcribed the same audio to "Hey this is Jonathan, I hope you're having a great day." This grammar inaccuracy is fine for me as the reader since I can understand the intention still. If this was to be sent to someone else in a more formal setting, then I may prefer the small's output since I would have less tolerance for grammar mistakes.
 
 \*\***Write your own script that verbally asks for a numerical input (a phone number, zipcode, number of pets) and records the answer the respondent provides.**\*\* Numbers are a good stress test — transcription systems make characteristic errors on digit strings, and you will want to know what they are before you design around them.
+
+WordHound: Numerical Input Test
+
+WordHound: Hi! I’m going to ask you for a phone number. Please say the number out loud when I ask.
+
+[Pause briefly for the respondent to respond.]
+
+WordHound: What is your phone number?
+
+[Wait for the respondent to finish speaking. Treat 1.0 second of silence as the end of the response.]
+
+Freddy: 734-555-0182.
+
+[WordHound records the transcribed response.]
+
+WordHound: I heard 734-555-0182. Is that correct?
+
+Freddy: Yes.
+
+WordHound: Thank you. Your response has been recorded.
+
+[End of interaction.]
 
 ## C. Turn-taking: knowing when someone has stopped talking
 
@@ -280,12 +302,13 @@ WordHound: Game over! Freddy finished with eight points, and Sam finished with t
 
 ## E. Acting out the dialogue
 
-Find a partner, and *without sharing the script with your partner* try out the dialogue you've designed, where you (as the device designer) act as the device you are designing. Please record this interaction (for example, using Zoom's record feature).
+Find a partner, and _without sharing the script with your partner_ try out the dialogue you've designed, where you (as the device designer) act as the device you are designing. Please record this interaction (for example, using Zoom's record feature).
 
 Watch the video here: https://drive.google.com/file/d/1XunK0EcWV18VXaPGtrj4vkQcQwvqhCNR/view?usp=share_link
 
-\*\***Describe if the dialogue seemed different than what you imagined when it was acted out, and how.**\*\*
+\*\***Describe if the dialogue seemed different than what you imagined when it was acted out, and how.**
 
+The dialogue was similar to the script, but it was more awkward when we played it out since we both weren't sure when the machine would start/stop talking. We also weren't sure if our audio got picked up by the machine, as there was sometimes a delay in its response.
 
 ---
 
@@ -296,45 +319,51 @@ For Part 2, you will redesign the interaction with the speech-enabled device usi
 ## Prep for Part 2
 
 1. What are concrete things that could use improvement in the design of your device? For example: wording, timing, anticipation of misunderstandings.
-2. What are other modes of interaction *beyond speech* that you might also use to clarify how to interact? In particular: how does someone know when the device is listening, and when it is thinking? You have a screen and an LED.
+2. What are other modes of interaction _beyond speech_ that you might also use to clarify how to interact? In particular: how does someone know when the device is listening, and when it is thinking? You have a screen and an LED.
 3. Make a new storyboard, diagram and/or script based on these reflections.
 4. (optional) Integrate [input devices](inputs.md) in the system
 
 ## Prototype your system
 
 The system should:
-* use the Raspberry Pi
-* use one or more sensors
-* require participants to speak to it
 
-*Document how the system works.*
+- use the Raspberry Pi
+- use one or more sensors
+- require participants to speak to it
 
-*Include videos or screencaptures of both the system and the controller.*
+_Document how the system works._
+
+_Include videos or screencaptures of both the system and the controller._
 
 ## Test the system
 
-Try to get at least two people to interact with your system. (Ideally, you would inform them that there is a wizard *after* the interaction, but we recognize that can be hard.)
+Try to get at least two people to interact with your system. (Ideally, you would inform them that there is a wizard _after_ the interaction, but we recognize that can be hard.)
 
 Answer the following:
 
 ### What worked well about the system and what didn't?
-\*\**your answer here*\*\*
+
+\*\*_your answer here_\*\*
 
 ### What worked well about the controller and what didn't?
-\*\**your answer here*\*\*
+
+\*\*_your answer here_\*\*
 
 ### What lessons can you take away from the WoZ interactions for designing a more autonomous version of the system?
-\*\**your answer here*\*\*
+
+\*\*_your answer here_\*\*
 
 ### How could you use your system to create a dataset of interaction? What other sensing modalities would make sense to capture?
-\*\**your answer here*\*\*
+
+\*\*_your answer here_\*\*
 
 <details>
   <summary><strong>Submission Cleanup Reminder (Click to Expand)</strong></summary>
 
-  **Before submitting your README.md:**
-  - This readme.md file has a lot of extra text for guidance.
-  - Remove all instructional text and example prompts from this file.
-  - You may either delete these sections or use the toggle/hide feature in VS Code to collapse them for a cleaner look.
-  - Your final submission should be neat, focused on your own work, and easy to read for grading.
+**Before submitting your README.md:**
+
+- This readme.md file has a lot of extra text for guidance.
+- Remove all instructional text and example prompts from this file.
+- You may either delete these sections or use the toggle/hide feature in VS Code to collapse them for a cleaner look.
+- Your final submission should be neat, focused on your own work, and easy to read for grading.
 </details>
