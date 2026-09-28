@@ -1,31 +1,28 @@
 #!/usr/bin/env python3
-"""Transcribe an audio file with faster-whisper, and report how long it took.
+"""Transcribe numbers.
 
-The point of this script is not the transcript. It is the *latency*, and what
-different model sizes cost you. Run it on the same file with several models and
-watch the accuracy/latency tradeoff directly.
-
-    python transcribe.py lookdave.wav
-    python transcribe.py lookdave.wav --model base.en
-    python transcribe.py lookdave.wav --model tiny.en --compute-type float32
-
-Models, smallest first: tiny.en, base.en, small.en, medium.en
-(The .en variants are English-only and noticeably faster than the multilingual
-ones at the same size. Drop the suffix if you need another language.)
+Ask the user for a phone number, zipcode, and number of pets.
 """
 
 import argparse
-import time
+import subprocess
+import wave
 
 from faster_whisper import WhisperModel
+from piper.voice import PiperVoice
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__,
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("audio", help="path to a .wav file")
     parser.add_argument("--model", default="tiny.en",
                         help="whisper model size (default: tiny.en)")
+    parser.add_argument("--voice-model-path", default="../voices/en_US-norman-medium.onnx",
+                        help="path to piper voice model to use")
+    parser.add_argument("--audio", default="number_test.wav",
+                        help="file for speech to text")
+    parser.add_argument("--tts-audio", default="number_instructions.wav",
+                            help="file for speech to text")
     parser.add_argument("--compute-type", default="int8",
                         choices=["int8", "int8_float32", "float32"],
                         help="quantization; int8 is ~2-3x faster on the Pi (default: int8)")
@@ -33,23 +30,33 @@ def main() -> None:
                         help="1 is greedy and fastest; 5 is more accurate and slower")
     args = parser.parse_args()
 
-    t0 = time.perf_counter()
-    model = WhisperModel(args.model, device="cpu", compute_type=args.compute_type)
-    t_load = time.perf_counter() - t0
+    # Give instructions
+    voice = PiperVoice.load(args.voice_model_path)
+    with wave.open(args.tts_audio, "wb") as tts_file:
+        voice.synthesize_wav("Please provide your phone number, zipcode, and number of pets", tts_file)
+    subprocess.run(["aplay", args.tts_audio])
 
-    t1 = time.perf_counter()
+    # arecord -d 5 -f cd -c 1 -r 16000 test.wav
+    print("Speak now")
+    subprocess.run(
+        [
+            "arecord",
+            "-d", "10",
+            "-f", "cd",
+            "-c", "1",
+            "-r", "16000",
+            args.audio
+        ],
+        stderr=subprocess.DEVNULL
+    )
+
+    print("Processing recording...")
+    model = WhisperModel(args.model, device="cpu", compute_type=args.compute_type)
+
     segments, info = model.transcribe(args.audio, beam_size=args.beam_size)
     text = " ".join(seg.text.strip() for seg in segments)  # generator: consume it
-    t_transcribe = time.perf_counter() - t1
 
     print(f"\n{text}\n")
-    print(f"model            {args.model} ({args.compute_type}, beam={args.beam_size})")
-    print(f"audio duration   {info.duration:.2f}s")
-    print(f"model load       {t_load:.2f}s")
-    print(f"transcription    {t_transcribe:.2f}s")
-    print(f"real-time factor {t_transcribe / info.duration:.2f}x")
-    print("\n(Model load is a one-time cost per process. In an interactive system "
-          "you load once and keep the model resident  which is what listen.py does.)")
 
 
 if __name__ == "__main__":
