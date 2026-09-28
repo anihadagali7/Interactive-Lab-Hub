@@ -145,27 +145,7 @@ Accuracy improvements stop being worth the delay if the text already captures th
 
 \*\***Write your own script that verbally asks for a numerical input (a phone number, zipcode, number of pets) and records the answer the respondent provides.**\*\* Numbers are a good stress test — transcription systems make characteristic errors on digit strings, and you will want to know what they are before you design around them.
 
-WordHound: Numerical Input Test
-
-WordHound: Hi! I’m going to ask you for a phone number. Please say the number out loud when I ask.
-
-[Pause briefly for the respondent to respond.]
-
-WordHound: What is your phone number?
-
-[Wait for the respondent to finish speaking. Treat 1.0 second of silence as the end of the response.]
-
-Freddy: 734-555-0182.
-
-[WordHound records the transcribed response.]
-
-WordHound: I heard 734-555-0182. Is that correct?
-
-Freddy: Yes.
-
-WordHound: Thank you. Your response has been recorded.
-
-[End of interaction.]
+https://github.com/anihadagali7/Interactive-Lab-Hub/blob/anihadagali7-Aug26-Lab/Lab%203/speech-scripts/transcribe.py 
 
 ## C. Turn-taking: knowing when someone has stopped talking
 
