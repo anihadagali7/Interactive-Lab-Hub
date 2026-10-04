@@ -335,7 +335,7 @@ _Include videos or screencaptures of both the system and the controller._
 
 Try to get at least two people to interact with your system. (Ideally, you would inform them that there is a wizard _after_ the interaction, but we recognize that can be hard.)
 
-Video of the WordHound test
+Video of the WordHound test: https://drive.google.com/file/d/1XunK0EcWV18VXaPGtrj4vkQcQwvqhCNR/view?usp=share_link 
 
 Answer the following:
 
