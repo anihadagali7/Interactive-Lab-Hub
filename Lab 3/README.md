@@ -319,7 +319,8 @@ The system should:
 
 _Document how the system works._
 
-_Include videos or screencaptures of both the system and the controller._
+<img width="430" height="746" alt="Screenshot 2026-10-04 at 7 56 00 PM" src="https://github.com/user-attachments/assets/a8ed0f85-d067-4112-beac-7cb733230570" />
+
 
 ## POC components
 
