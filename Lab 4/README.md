@@ -307,6 +307,18 @@ Some questions came up include:
 	- We could prototype the system with just one fake paper utensil to see if we can hide the wiring.
 - When we fix the number of utensils we allow the user to use, how do we know that we cover all the cases seen in the "fine dining" world?
 	- This is not something physical prototyping can address since this is more of a hypothetical.
+- How will the system determine whether a utensil has been placed in the correct position?
+	- We could place capacitive sensors beneath designated table positions and test whether they can detect a utensil being placed or removed. We could try different sensor positions and materials between the sensor and utensil to determine how reliably the system detects placement.
+- How will the system distinguish between different utensils placed in the same location?
+	- We could test whether capacitive sensing can distinguish a fork from a spoon or whether we need separate designated placement zones. We could also experiment with identifying utensils through their shape or by attaching small markers, if appropriate.		
+- How do we prevent the sensors from detecting a utensil that is near a position but not actually placed there?
+	- We could move utensils around the edges of each sensing zone and test when the sensor activates. This would help us determine the appropriate size and spacing of each zone.
+- How can we avoid forcing the user to constantly look between the phone and the table?
+	- We could prototype alternative feedback methods, such as highlighting the next position on the phone while using a physical indicator or OLED at the table. We could then compare how easily users follow the instructions.
+- How do we know the system has correctly detected the user's action?
+	- We could test a series of known actions, such as picking up a fork, moving a spoon, or placing a knife down. We could compare the system's detected actions with what actually happened and record how often it makes mistakes.
+- How long can the user wait between performing an action and receiving feedback?
+	- We could measure the time between a sensor detecting an action and the display or servo responding. We could test different delays and observe whether the interaction feels immediate enough.
 
 **\*\*\*Pick one design to prototype and explain why.\*\*\***
 
