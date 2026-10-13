@@ -330,7 +330,8 @@ I'd choose this design because it combines physical interaction, sensing, and fe
 
 **\*\*\*Document your rough prototype with photos and/or video.\*\*\***
 
-![Uploading IMG_6354.jpeg…]()
+![IMG_6354](https://github.com/user-attachments/assets/ed944961-f9c0-4a53-a933-1c6b166d50a3)
+
 
 ---
 
