@@ -1,32 +1,43 @@
-"""Fork sensor: tells you when a metal fork is resting on a copper-tape pad.
+"""Utensil sensor: tells you when the spoon, knife and fork are put down or picked up.
 
-Wiring: copper tape pad -> alligator clip -> an electrode pin (default 0) on the
-Adafruit MPR121 gator breakout, which sits on the Pi's I2C bus (address 0x5A).
-Nothing else needs to be wired to the pad; the fork bridges onto the tape and
-adds capacitance, which lowers the MPR121's filtered reading.
+Each utensil rests on its own copper-tape pad, and each pad is connected to one
+electrode on the Adafruit MPR121 gator breakout (I2C address 0x5A):
 
-  python fork_sensor.py                  watch pin 0 with default thresholds
-  python fork_sensor.py --tune           live readings, to pick a threshold
-  python fork_sensor.py --calibrate      guided: measures empty pad vs. fork
-  python fork_sensor.py --pins 0 1 2     watch several pads (one per slot)
+    spoon -> pad 0      knife -> pad 5      fork -> pad 11
 
-Why not just use mpr121[i].value? The chip's baseline keeps re-tracking, so a
-fork that stays put gets "absorbed" and the touch flag eventually clears. Here
-the reference only updates while the pad is empty, so a fork stays detected for
-as long as it is there.
+A metal utensil on its pad adds capacitance, which lowers that electrode's
+filtered reading. Putting a utensil down = reading drops; picking it up = it recovers.
+
+  python fork_sensor.py --calibrate              guided calibration of all three, saved to a file
+  python fork_sensor.py --calibrate spoon        redo just one
+  python fork_sensor.py                          watch all three using the saved calibration
+  python fork_sensor.py --tune                   live readings, to see how far each utensil moves its pad
+
+Start with every utensil OFF its pad: the first second is used to measure the empty pads.
+
+Why not just use mpr121[i].value? The chip's baseline keeps re-tracking, so a utensil
+that stays put gets "absorbed" and the touch flag eventually clears. Here the reference
+only updates while a pad is empty, so a utensil stays detected for as long as it is there.
 """
 import argparse
+import json
 import sys
 import time
+from pathlib import Path
 
 SAMPLE_HZ = 20
 
+# name -> MPR121 electrode number
+UTENSILS = {"spoon": 0, "knife": 5, "fork": 11}
+
+CAL_FILE = Path(__file__).with_name("fork_sensor_calibration.json")
+
 
 class PadDetector:
-    """Turns a stream of MPR121 filtered readings into fork down / fork up events.
+    """Turns a stream of MPR121 filtered readings into put-down / picked-up events.
 
     Readings DROP when something conductive touches the pad, so
-    delta = reference - reading is positive while the fork is on.
+    delta = reference - reading is positive while the utensil is on.
     Hysteresis (on > off) and a confirm count stop it flickering at the edge.
     """
 
@@ -43,7 +54,7 @@ class PadDetector:
         return self.reference - reading
 
     def update(self, reading):
-        """Feed one reading. Returns True (fork down), False (fork up) or None."""
+        """Feed one reading. Returns True (put down), False (picked up) or None."""
         threshold = self.off if self.present else self.on
         wants_present = self.delta(reading) > threshold
         if wants_present == self.present:
@@ -60,10 +71,23 @@ class PadDetector:
         return self.present
 
 
-def fork_changed(pin, present):
-    """Hook for what should happen on a change. Replace the body to drive the
-    servo, LEDs, a log file, etc."""
-    print(f"[{time.strftime('%H:%M:%S')}] pad {pin}: " + ("FORK DOWN" if present else "fork lifted"))
+def utensil_changed(name, present, down):
+    """Hook for what should happen on a change. `down` lists what is on its pad now.
+    Replace the body to drive the servo, LEDs, a log file, etc."""
+    verb = "put down" if present else "picked up"
+    on_pads = ", ".join(down) if down else "nothing"
+    print(f"[{time.strftime('%H:%M:%S')}] {name}: {verb}    (on pads now: {on_pads})")
+
+
+def load_calibration():
+    try:
+        return json.loads(CAL_FILE.read_text())
+    except (OSError, ValueError):
+        return {}
+
+
+def save_calibration(cal):
+    CAL_FILE.write_text(json.dumps(cal, indent=2))
 
 
 def sample(mpr, pin, seconds):
@@ -76,88 +100,108 @@ def sample(mpr, pin, seconds):
     return sum(readings) / len(readings), max(readings) - min(readings)
 
 
-def guided_calibration(mpr, pin):
-    """Measure the empty pad, then the pad with the fork, and derive thresholds."""
-    input(f"\nPad {pin}: take the fork OFF the pad, then press Enter...")
+def guided_calibration(mpr, name):
+    """Measure the empty pad, then the pad with the utensil. Returns (on, off) or None."""
+    pin = UTENSILS[name]
+    input(f"\n{name} (pad {pin}): take the {name} OFF its pad, then press Enter...")
     empty, noise = sample(mpr, pin, 1.5)
-    input(f"Pad {pin}: put the fork DOWN on the copper, then press Enter...")
-    forked, _ = sample(mpr, pin, 1.5)
-    gap = empty - forked
-    print(f"  empty={empty:.0f}  fork={forked:.0f}  difference={gap:.0f}  noise={noise}")
+    input(f"{name} (pad {pin}): put the {name} DOWN on its copper, then press Enter...")
+    present, _ = sample(mpr, pin, 1.5)
+    gap = empty - present
+    print(f"  empty={empty:.0f}  {name}={present:.0f}  difference={gap:.0f}  noise={noise}")
     if gap < max(4, noise * 2):
         # Thresholds this low would sit inside the noise and trigger on nothing.
-        print("  Not usable: the fork's effect is no bigger than the reading's own wobble.")
-        print("  Try bridging the fork between the pad and a GND-connected strip, or a bigger pad, "
-              "and run --calibrate again.")
-        sys.exit(1)
-    return empty, gap * 0.5, gap * 0.25
+        print(f"  Not usable: the {name}'s effect is no bigger than the reading's own wobble.")
+        print("  Check the connection to the pad, use a bigger pad, or bridge to a GND strip.")
+        return None
+    on, off = gap * 0.5, gap * 0.25
+    print(f"  saved thresholds: on {on:.0f}, off {off:.0f}")
+    return on, off
 
 
-def tune(mpr, pins):
-    """Live readout so you can see how far a fork moves the number."""
-    print("Tune mode: watch the 'drop' number. Put the fork on/off the pad. Ctrl-C to stop.\n")
-    refs = {p: sample(mpr, p, 1.0)[0] for p in pins}
+def tune(mpr):
+    """Live readout so you can see how far each utensil moves its pad."""
+    print("Tune mode: watch the 'drop' numbers. Put utensils on/off their pads. Ctrl-C to stop.\n")
+    refs = {name: sample(mpr, pin, 1.0)[0] for name, pin in UTENSILS.items()}
     while True:
         parts = []
-        for p in pins:
-            drop = refs[p] - mpr.filtered_data(p)
-            bar = "#" * max(0, min(30, int(drop)))
-            parts.append(f"pad {p}: drop {drop:5.0f} |{bar:<30}|")
-        print("\r" + "   ".join(parts), end="", flush=True)
+        for name, pin in UTENSILS.items():
+            drop = refs[name] - mpr.filtered_data(pin)
+            parts.append(f"{name} {drop:4.0f} {'#' * max(0, min(10, int(drop / 3))):<10}")
+        print("\r" + "  ".join(parts), end="", flush=True)
         time.sleep(1 / SAMPLE_HZ)
 
 
-def main():
-    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("--pins", type=int, nargs="+", default=[0], help="MPR121 electrodes to watch (0-11)")
-    parser.add_argument("--address", type=lambda s: int(s, 0), default=0x5A, help="I2C address (default 0x5A)")
-    parser.add_argument("--on", type=float, default=8, help="drop needed to call the fork present")
-    parser.add_argument("--off", type=float, default=4, help="drop below which the fork counts as gone")
-    parser.add_argument("--tune", action="store_true", help="show live readings instead of events")
-    parser.add_argument("--calibrate", action="store_true", help="guided calibration of the thresholds")
-    args = parser.parse_args()
+def watch(mpr, detectors, sleep=time.sleep, ticks=None):
+    """Poll every pad forever (or `ticks` times) and report changes."""
+    n = 0
+    while ticks is None or n < ticks:
+        for name, det in detectors.items():
+            try:
+                change = det.update(mpr.filtered_data(UTENSILS[name]))
+            except OSError:
+                continue  # a dropped I2C read; try again next tick
+            if change is not None:
+                utensil_changed(name, change, [k for k, d in detectors.items() if d.present])
+        sleep(1 / SAMPLE_HZ)
+        n += 1
 
+
+def connect(address=0x5A):
+    """Open the MPR121 on the Pi's I2C bus, or explain what to check and exit."""
     # Hardware imports live here so PadDetector can be tested on a laptop.
     import board
     import busio
     import adafruit_mpr121
 
     try:
-        mpr = adafruit_mpr121.MPR121(busio.I2C(board.SCL, board.SDA), address=args.address)
+        return adafruit_mpr121.MPR121(busio.I2C(board.SCL, board.SDA), address=address)
     except (ValueError, RuntimeError, OSError) as err:
-        print(f"Could not talk to the MPR121 at {args.address:#04x}: {err}")
+        print(f"Could not talk to the MPR121 at {address:#04x}: {err}")
         print("Check I2C is on (sudo raspi-config) and run `i2cdetect -y 1`: you should see 5a "
               "(the Servo pHAT shows up separately as 40).")
         sys.exit(1)
 
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser.add_argument("--address", type=lambda s: int(s, 0), default=0x5A, help="I2C address (default 0x5A)")
+    parser.add_argument("--on", type=float, default=8, help="default drop needed to call a utensil present (uncalibrated pads)")
+    parser.add_argument("--off", type=float, default=4, help="default drop below which a utensil counts as gone (uncalibrated pads)")
+    parser.add_argument("--tune", action="store_true", help="show live readings instead of events")
+    parser.add_argument("--calibrate", nargs="*", choices=list(UTENSILS), metavar="NAME",
+                        help="guided calibration; give names to redo only those (spoon knife fork)")
+    args = parser.parse_args()
+
+    mpr = connect(args.address)
+
     try:
         if args.tune:
-            tune(mpr, args.pins)
+            tune(mpr)
             return
 
-        detectors = {}
-        if args.calibrate:
-            for p in args.pins:
-                ref, on, off = guided_calibration(mpr, p)
-                detectors[p] = PadDetector(ref, on, off)
-            input("\nCalibrated. Take the fork off the pads and press Enter to start...")
-            for p in args.pins:  # re-measure the empty reference right before running
-                detectors[p].reference = sample(mpr, p, 1.0)[0]
-        else:
-            print("Measuring the empty pad(s): keep the fork off for a second...")
-            for p in args.pins:
-                detectors[p] = PadDetector(sample(mpr, p, 1.0)[0], args.on, args.off)
+        cal = load_calibration()
+        if args.calibrate is not None:
+            for name in args.calibrate or list(UTENSILS):
+                result = guided_calibration(mpr, name)
+                if result:
+                    cal[name] = {"on": result[0], "off": result[1]}
+                else:
+                    cal.pop(name, None)
+            save_calibration(cal)
+            input("\nTake every utensil off its pad and press Enter to start...")
 
-        print(f"Watching pad(s) {args.pins}. Ctrl-C to stop.")
-        while True:
-            for p, det in detectors.items():
-                try:
-                    change = det.update(mpr.filtered_data(p))
-                except OSError:
-                    continue  # a dropped I2C read; try again next tick
-                if change is not None:
-                    fork_changed(p, change)
-            time.sleep(1 / SAMPLE_HZ)
+        print("Measuring the empty pads: keep all utensils off for a few seconds...")
+        detectors = {}
+        for name, pin in UTENSILS.items():
+            c = cal.get(name)
+            if c is None:
+                print(f"  note: {name} is not calibrated, using --on {args.on:g} --off {args.off:g}")
+            detectors[name] = PadDetector(sample(mpr, pin, 1.0)[0],
+                                          c["on"] if c else args.on, c["off"] if c else args.off)
+
+        print("Watching spoon, knife and fork. Ctrl-C to stop.")
+        watch(mpr, detectors)
     except KeyboardInterrupt:
         print("\nStopped.")
 
