@@ -85,9 +85,12 @@ def guided_calibration(mpr, pin):
     gap = empty - forked
     print(f"  empty={empty:.0f}  fork={forked:.0f}  difference={gap:.0f}  noise={noise}")
     if gap < max(4, noise * 2):
-        print("  WARNING: the fork barely changes the reading. Use a bigger copper pad, make sure "
-              "the fork touches the tape directly, and check the clip is on the right pin.")
-    return empty, max(2, gap * 0.5), max(1, gap * 0.25)
+        # Thresholds this low would sit inside the noise and trigger on nothing.
+        print("  Not usable: the fork's effect is no bigger than the reading's own wobble.")
+        print("  Try bridging the fork between the pad and a GND-connected strip, or a bigger pad, "
+              "and run --calibrate again.")
+        sys.exit(1)
+    return empty, gap * 0.5, gap * 0.25
 
 
 def tune(mpr, pins):
