@@ -41,12 +41,15 @@ class PadDetector:
     Hysteresis (on > off) and a confirm count stop it flickering at the edge.
     """
 
-    def __init__(self, reference, on=8, off=4, confirm=3, drift=0.01):
+    def __init__(self, reference, on=8, off=4, confirm=3, drift=0.002):
         self.reference = float(reference)
         self.on = on
         self.off = off
         self.confirm = confirm
-        self.drift = drift  # how fast the empty-pad reference follows slow changes
+        # Fraction of the gap the empty-pad reference closes per reading. Slow on purpose
+        # (about 10-25 s to follow a change): real drift is gradual, and a utensil resting
+        # weakly on the pad must not be soaked into the reference within a few seconds.
+        self.drift = drift
         self.present = False
         self._streak = 0
 
@@ -59,8 +62,10 @@ class PadDetector:
         wants_present = self.delta(reading) > threshold
         if wants_present == self.present:
             self._streak = 0
-            if not self.present:
-                # empty pad: follow temperature/humidity drift
+            if not self.present and abs(self.delta(reading)) <= self.off:
+                # Empty pad: follow slow temperature/humidity drift. Only while the reading is
+                # inside the noise band, so a utensil resting weakly on the pad (a drop between
+                # off and on) is never absorbed into the reference and mistaken for "empty".
                 self.reference += self.drift * (reading - self.reference)
             return None
         self._streak += 1

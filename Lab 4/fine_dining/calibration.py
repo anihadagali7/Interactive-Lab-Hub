@@ -6,14 +6,24 @@ A utensil resting on its copper pad LOWERS that pad's reading, so "drop" below m
 """
 from statistics import median
 
-MAX_EMPTY_NOISE = 30   # peak-to-peak counts allowed on a pad while it is measured empty
+MAX_EMPTY_NOISE = 30   # counts a pad's reading may move while it is measured empty
+SETTLE_SECONDS = 0.7   # ignore readings this long after "measure" is tapped
 STUCK_SECONDS = 30     # after this long without detecting a utensil, show a hint
+
+
+def spread(values):
+    """Peak-to-peak range of the readings, ignoring the highest and lowest few so a single
+    stray sample (an I2C glitch) does not count as wobble."""
+    ordered = sorted(values)
+    trim = len(ordered) // 15  # 2 of 30 samples at each end
+    kept = ordered[trim:len(ordered) - trim]
+    return round(kept[-1] - kept[0])
 
 
 class PadCalibration:
     """Learns one pad. The utensil counts as placed once the drop has been above `trigger`
-    for (nearly) every reading over the last `hold` seconds; thresholds are then half and a
-    quarter of the median drop. A stray dip while it settles does not restart the clock."""
+    for (nearly) every reading over the last `hold` seconds; thresholds are then 40% and 20%
+    of the median drop. A stray dip while it settles does not restart the clock."""
 
     def __init__(self, empty, noise, hold=1.2, steady=0.9):
         self.empty = empty
@@ -38,7 +48,9 @@ class PadCalibration:
         drops = [self.empty - r for _, r in self._window]
         if sum(d > self.trigger for d in drops) >= self.steady * len(drops):
             drop = median(drops)
-            self.result = (drop * 0.5, drop * 0.25)
+            # Putting a utensil back should be easier to detect than picking one up is to miss:
+            # a utensil resting less firmly than it did here must still count as "on its pad".
+            self.result = (drop * 0.4, drop * 0.2)
 
 
 class TableCalibrator:
@@ -59,6 +71,7 @@ class TableCalibrator:
         self.references = {}  # id -> mean empty reading
         self.results = {}     # id -> (on, off)
         self._samples = {}
+        self._measure_start = 0
         self._measure_end = 0
         self._pads = {}
         self._current = 0
@@ -70,13 +83,16 @@ class TableCalibrator:
             self.step = 'measuring'
             self.notice = ''
             self._samples = {uid: [] for uid, _ in self.items}
-            self._measure_end = now + self.measure_seconds
+            # Skip the first moments: a utensil lifted just before the tap is still settling.
+            self._measure_start = now + SETTLE_SECONDS
+            self._measure_end = self._measure_start + self.measure_seconds
 
     def feed(self, readings, now):
         """Call every tick while measuring/placing. `readings` maps utensil id -> value."""
         if self.step == 'measuring':
-            for uid, value in readings.items():
-                self._samples[uid].append(value)
+            if now >= self._measure_start:
+                for uid, value in readings.items():
+                    self._samples[uid].append(value)
             if now >= self._measure_end:
                 self._finish_measuring(now)
         elif self.step == 'placing':
@@ -97,16 +113,15 @@ class TableCalibrator:
         noisy = []
         for uid, name in self.items:
             values = self._samples[uid]
-            noise = max(values) - min(values)
+            noise = spread(values)
             if noise > MAX_EMPTY_NOISE:
-                noisy.append(name)
+                noisy.append(f'{name.lower()} {noise}')
             self.references[uid] = sum(values) / len(values)
             self._pads[uid] = PadCalibration(self.references[uid], noise, self.hold)
         if noisy:
-            names = [name.lower() for name in noisy]
-            joined = names[0] if len(names) == 1 else ', '.join(names[:-1]) + ' and ' + names[-1]
-            self.reset(f"The {joined} pad{'s' if len(names) > 1 else ''} wobbled too much. "
-                       "Keep your hands away from the pads and wires, then measure again.")
+            self.reset(f"An empty pad's reading moved too much while measuring ({', '.join(noisy)}; limit "
+                       f"{MAX_EMPTY_NOISE}). Make sure every utensil is fully off its pad, keep your hands away "
+                       "from the pads and wires, wait a moment, then measure again.")
             return
         self.step = 'placing'
         self._current = 0

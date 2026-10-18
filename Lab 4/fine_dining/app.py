@@ -228,7 +228,7 @@ class Session:
             return
         names = [self.mapping[ch]['name'].lower() for ch in sorted(active)]
         joined = names[0] if len(names) == 1 else ', '.join(names[:-1]) + ' and ' + names[-1]
-        self.reminder = f"Please put the {joined} back on {'its pad' if len(names) == 1 else 'their pads'}."
+        self.reminder = f"Please put the {joined} back on {'its pad' if len(names) == 1 else 'their pads'} and press down."
 
     def update(self, active, now):
         # Called only for a stable (debounced) sensor sample. `active` holds the channels
@@ -291,6 +291,7 @@ class SensorRunner:
     def __init__(self, session, read):
         self.session, self.read = session, read
         self.items = [(item['id'], item['name'], ch) for ch, item in session.mapping.items()]
+        self.names = {ch: name for _, name, ch in self.items}
         self.calibrator = TableCalibrator([(uid, name) for uid, name, _ in self.items])
         self.detectors = {}  # channel -> PadDetector; empty while setup is running
         self.candidate, self.changed = frozenset(), 0
@@ -336,7 +337,11 @@ class SensorRunner:
     def _play_tick(self, now, debounce):
         lifted = set()
         for ch, detector in self.detectors.items():
-            detector.update(self.read(ch))
+            reading = self.read(ch)
+            if detector.update(reading) is not None:
+                # One line per lift / put-back, so a misread shows up in the terminal.
+                print(f"{self.names[ch]}: {'back on its pad' if detector.present else 'lifted'} "
+                      f"(drop {detector.delta(reading):.0f}; on > {detector.on:.0f}, off < {detector.off:.0f})", flush=True)
             if not detector.present:
                 lifted.add(ch)
         active = frozenset(lifted)
