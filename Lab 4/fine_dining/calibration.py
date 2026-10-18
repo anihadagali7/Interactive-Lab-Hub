@@ -11,27 +11,33 @@ STUCK_SECONDS = 30     # after this long without detecting a utensil, show a hin
 
 
 class PadCalibration:
-    """Learns one pad. The utensil counts as placed once the drop has stayed above
-    `trigger` for `hold` seconds; thresholds are then half and a quarter of the drop."""
+    """Learns one pad. The utensil counts as placed once the drop has been above `trigger`
+    for (nearly) every reading over the last `hold` seconds; thresholds are then half and a
+    quarter of the median drop. A stray dip while it settles does not restart the clock."""
 
-    def __init__(self, empty, noise, hold=1.2):
+    def __init__(self, empty, noise, hold=1.2, steady=0.9):
         self.empty = empty
         self.hold = hold
+        self.steady = steady  # fraction of the window that must clear the trigger
         # Same bar `fork_sensor.py --calibrate` uses for "usable": the drop must be at
         # least twice the pad's own wobble, so the thresholds sit above the noise.
         self.trigger = max(6, 2 * noise)
-        self._window = []
+        self.drop = 0  # latest drop, shown on the phone while waiting
+        self._window = []  # (time, reading) for the last `hold` seconds
         self.result = None  # (on, off) once learned
 
     def update(self, reading, now):
         if self.result:
             return
-        if self.empty - reading <= self.trigger:
-            self._window = []
-            return
+        self.drop = self.empty - reading
         self._window.append((now, reading))
-        if now - self._window[0][0] >= self.hold:
-            drop = self.empty - median(r for _, r in self._window)
+        while now - self._window[0][0] > self.hold:
+            self._window.pop(0)
+        if now - self._window[0][0] < self.hold * 0.9:
+            return  # not enough history yet
+        drops = [self.empty - r for _, r in self._window]
+        if sum(d > self.trigger for d in drops) >= self.steady * len(drops):
+            drop = median(drops)
             self.result = (drop * 0.5, drop * 0.25)
 
 
@@ -117,6 +123,10 @@ class TableCalibrator:
             else:
                 status = 'pending'
             items.append({'id': uid, 'name': name, 'status': status})
+        detail = ''
+        if self.step == 'placing':
+            pad = self._pads[self.items[self._current][0]]
+            detail = f'Pad reading: drop {max(0, round(pad.drop))}, needs more than {round(pad.trigger)}.'
         if self.step == 'clear':
             message = self.notice or 'Take every utensil off its pad and keep your hands away from the table.'
         elif self.step == 'measuring':
@@ -129,4 +139,4 @@ class TableCalibrator:
                             'connection to the pad.')
         else:
             message = 'Every utensil was detected. Your table is ready.'
-        return {'step': self.step, 'message': message, 'items': items}
+        return {'step': self.step, 'message': message, 'detail': detail, 'items': items}
