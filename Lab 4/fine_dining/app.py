@@ -18,6 +18,11 @@ ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT.parent))  # fork_sensor.py (pad detector, saved calibration) lives in Lab 4
 
 from calibration import TableCalibrator  # noqa: E402
+
+# How long a utensil may stay off its pad before the phone reminds the diner to put it back.
+REMIND_AFTER_CORRECT = 2  # seconds after the correct-answer feedback time has ended
+REMIND_AFTER_WRONG = 5    # seconds after a wrong answer
+REMIND_AFTER_OTHER = 3    # seconds when a utensil was already up at the start, or two were lifted at once
 from fork_sensor import PadDetector, load_calibration, save_calibration  # noqa: E402
 
 
@@ -144,6 +149,8 @@ class Session:
         self.touched = []  # names of utensils currently picked up
         self.armed = False
         self.until = 0
+        self.reminder = ''  # shown on the phone while a utensil should be back on its pad
+        self.remind_from = None
         self.setup = {'step': 'connecting', 'message': 'Connecting to the sensor…', 'items': []}
         self.setup_cmd = None
 
@@ -200,11 +207,28 @@ class Session:
                         menu=[{'dish': c['dish'], 'label': c.get('course_label', f'Course {i + 1}'),
                                'status': 'served' if i < self.index else 'current' if i == self.index else 'upcoming'}
                               for i, c in enumerate(self.courses)],
-                        sensor=self.sensor, error=self.error, touched=self.touched, setup=self.setup,
+                        sensor=self.sensor, error=self.error, touched=self.touched, setup=self.setup, reminder=self.reminder,
                         course_number=min(self.index + 1, len(self.courses)), total=len(self.courses),
                         dish=self.courses[self.index]['dish'] if self.index < len(self.courses) else 'Dinner is complete',
                         prompt=self.courses[self.index]['prompt'] if self.index < len(self.courses) else 'Thank you for joining us at the table.',
                         first_try=self.first_try, retries=sum(max(0, n - 1) for n in self.attempts))
+
+    def remind(self, active, now):
+        """Nudge the diner when a utensil is still off its pad although the table should be reset
+        (after an answer, or when two were lifted at once). Caller holds the lock."""
+        stuck = bool(active) and not self.armed  # armed again only once every utensil is back
+        if not stuck:
+            self.reminder, self.remind_from = '', None
+            return
+        if self.remind_from is None:
+            self.remind_from = {'correct': self.until + REMIND_AFTER_CORRECT,
+                                'wrong': now + REMIND_AFTER_WRONG}.get(self.phase, now + REMIND_AFTER_OTHER)
+        if now < self.remind_from:
+            self.reminder = ''
+            return
+        names = [self.mapping[ch]['name'].lower() for ch in sorted(active)]
+        joined = names[0] if len(names) == 1 else ', '.join(names[:-1]) + ' and ' + names[-1]
+        self.reminder = f"Please put the {joined} back on {'its pad' if len(names) == 1 else 'their pads'}."
 
     def update(self, active, now):
         # Called only for a stable (debounced) sensor sample. `active` holds the channels
@@ -213,7 +237,9 @@ class Session:
             self.sensor = 'connected'
             self.touched = [self.mapping[ch]['name'] for ch in sorted(active)]
             if self.phase in ('calibrating', 'waiting', 'complete'):
+                self.reminder, self.remind_from = '', None
                 return
+            self.remind(active, now)
             if self.phase == 'correct':
                 if now < self.until or active:
                     return
