@@ -38,7 +38,7 @@ A utensil whose pad cannot beat its own sensor noise by 2× is never detected, t
 
 ## Match your wiring
 
-The mapping in `cutlery.json` is **spoon = 0, knife = 5, fork = 11** (the order is also the order setup asks for them). To find the channel for a pad, run:
+The mapping in `cutlery.json` is **spoon = 0, knife = 5, fork = 10** (the order is also the order setup asks for them). To find the channel for a pad, run:
 
 ```bash
 "Lab 4/fine_dining/start.sh" --map

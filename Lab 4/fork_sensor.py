@@ -3,7 +3,7 @@
 Each utensil rests on its own copper-tape pad, and each pad is connected to one
 electrode on the Adafruit MPR121 gator breakout (I2C address 0x5A):
 
-    spoon -> pad 0      knife -> pad 5      fork -> pad 11
+    spoon -> pad 0      knife -> pad 5      fork -> pad 10
 
 A metal utensil on its pad adds capacitance, which lowers that electrode's
 filtered reading. Putting a utensil down = reading drops; picking it up = it recovers.
@@ -28,7 +28,7 @@ from pathlib import Path
 SAMPLE_HZ = 20
 
 # name -> MPR121 electrode number
-UTENSILS = {"spoon": 0, "knife": 5, "fork": 11}
+UTENSILS = {"spoon": 0, "knife": 5, "fork": 10}
 
 CAL_FILE = Path(__file__).with_name("fork_sensor_calibration.json")
 
