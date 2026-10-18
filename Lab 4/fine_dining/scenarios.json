@@ -41,7 +41,7 @@
     },
     {
       "dish": "Filet mignon",
-      "prompt": "Your steak needs cutting. Touch only the utensil you would use to cut a bite.",
+      "prompt": "Your steak needs cutting. Pick up only the utensil you would use to cut a bite.",
       "accepted": [
         "knife"
       ],

@@ -1,6 +1,6 @@
 # At the Table
 
-A local dining practice prototype: touch a wired paper utensil and see feedback on your phone. The Pi owns the entire session; the phone displays its current state. All connected phones see the same session.
+A local dining practice prototype: real utensils rest on copper-tape pads, and picking one up is your answer, with feedback on your phone. The Pi owns the entire session; the phone displays its current state. All connected phones see the same session.
 
 ## Start and stop
 
@@ -12,7 +12,7 @@ From the repository root:
 
 The script uses `Lab 4/.venv` if present, otherwise `python3`. It needs the same CircuitPython/Blinka dependencies and I²C setup as `cap_test.py`. If these are missing, install the Lab 4 requirements into the lab virtual environment as described in the lab README.
 
-Keep your hands off the utensils during startup. Open the printed `http://<hostname>.local:8000` URL on your phone. If that does not resolve, run `hostname -I` on the Pi and use its Wi-Fi/LAN IP, for example `http://192.168.1.42:8000` (replace the example address).
+Open the printed `http://<hostname>.local:8000` URL on your phone. If that does not resolve, run `hostname -I` on the Pi and use its Wi-Fi/LAN IP, for example `http://192.168.1.42:8000` (replace the example address).
 
 The phone and Pi must be on a network that permits device-to-device traffic. Guest/campus Wi-Fi sometimes blocks this even on the same network. Use a shared network or hotspot that allows local connections. No internet access is needed by the app. This prototype serves plain HTTP on the local network without login.
 
@@ -22,19 +22,31 @@ Press **Ctrl+C** in the running terminal to stop. Start again for a fresh dinner
 "Lab 4/fine_dining/start.sh" --port 8001
 ```
 
+## Table setup (calibration)
+
+Every time the app starts, the phone opens on a short **table setup** instead of "Start dinner". The Pi learns your sensor readings, so no numbers need editing:
+
+1. Take every utensil off its pad, keep your hands away from the pads and wires, and tap **The table is clear — measure**. The Pi spends about 1.5 seconds measuring the empty pads. If a pad wobbles too much (hands or wires moving), it asks you to measure again.
+2. Place the **spoon**, then the **knife**, then the **fork** on their pads when prompted, one at a time, and leave each there. A utensil counts once the pad has held steady for about a second; its row turns green. If one is not detected after 30 seconds the phone suggests pressing it firmly onto the tape and checking the connection.
+3. When all three are green, **Start dinner** appears. All utensils are now resting on their pads, which is the starting position for the dinner.
+
+**Redo table setup** (below Start dinner) repeats this before the dinner begins. The learned on/off thresholds are saved to `Lab 4/fork_sensor_calibration.json`, the same file `fork_sensor.py` and `utensil_quiz.py` use, so they stay in step. The empty-pad reading is measured fresh each run because it drifts between sessions.
+
+A utensil whose pad cannot beat its own sensor noise by 2× is never detected, the same bar as `python fork_sensor.py --calibrate`. Fix the connection, use a bigger pad, or bridge to a GND strip.
+
 ## Match your wiring
 
-The supplied mapping is a placeholder: **fork = 0, knife = 1, spoon = 2**. Check it before playing:
+The mapping in `cutlery.json` is **spoon = 0, knife = 5, fork = 11** (the order is also the order setup asks for them). To find the channel for a pad, run:
 
 ```bash
 "Lab 4/fine_dining/start.sh" --map
 ```
 
-Touch each utensil separately and note the channel printed in the terminal. Mapping mode reads all 12 channels, including disabled/unmapped ones, and does not start the website. Stop it with Ctrl+C, then edit `cutlery.json`.
+Mapping mode uses the chip's own touch flag, so touch each pad with a finger (a resting utensil may not trigger it) and note the channel printed in the terminal. Mapping mode reads all 12 channels, including disabled/unmapped ones, and does not start the website. Stop it with Ctrl+C, then edit `cutlery.json`.
 
 Each utensil has a stable `id`, a human-readable `name`, a `channel` from 0–11, and an `enabled` flag. IDs and channels must be unique. Set `enabled` to false to ignore a channel during play. If channel 0 is troublesome, disable or remap its utensil; the separate `cap_test_sensor0_inactive.py` file does not establish that it is faulty.
 
-`debounce_ms` controls how long a complete touch combination must remain stable before acceptance (default 100 ms). Increase it if touches flicker; lower it cautiously if short touches are missed. Touch means select: the sensor cannot prove that a utensil has been lifted or placed correctly.
+`debounce_ms` controls how long the set of lifted utensils must remain stable before acceptance (default 100 ms). Increase it if lifts flicker; lower it cautiously if short lifts are missed. Picking up means select: a utensil off its pad is "selected" until you put it back. The sensor cannot tell which utensil is physically on a pad, only that something conductive is on that pad, so a utensil placed on the wrong pad counts as the pad's utensil.
 
 ## Configure a dinner
 
@@ -43,7 +55,7 @@ Edit `scenarios.json`. `courses` is the ordered list of prompts:
 ```json
 {
   "dish": "Tomato soup",
-  "prompt": "Your soup has arrived. Touch the utensil you would use.",
+  "prompt": "Your soup has arrived. Pick up the utensil you would use.",
   "accepted": ["spoon"],
   "hint": "Choose a utensil that can hold the broth.",
   "explanation": "Use the spoon for soup."
@@ -62,11 +74,11 @@ Restart to load changes. Configuration errors print in the terminal before the s
 
 ## Interaction and first hardware trial
 
-1. Start the app, connect your phone, and verify the live sensor indicator.
-2. Touch a wrong utensil: expect a clear “Try again” message and hint.
-3. Hold it: it should count only once. Release all utensils, then choose again.
-4. Touch two utensils together: expect “One utensil at a time,” with no attempt counted. Touches arriving separately may be interpreted as the first selection if separated by more than the debounce interval.
-5. Select correctly: the photo border glows green. Listen to the waiter, release the utensils, and wait for the next course.
+1. Start the app, connect your phone, verify the live sensor indicator, and complete the table setup above.
+2. Pick up a wrong utensil: expect a clear “Try again” message and hint.
+3. Hold it up: it should count only once. Put it back, then choose again.
+4. Pick up two utensils together: nothing happens (no attempt counted, no voice cue). Lifts arriving separately may be interpreted as the first selection if separated by more than the debounce interval.
+5. Select correctly: the photo border glows green. Listen to the waiter, put the utensil back, and wait for the next course.
 6. Refresh the phone: it should rejoin the current course. Finish for the first-try/retry summary.
 7. Stop the app: the phone should show disconnection within a few seconds. Restart for another dinner.
 
@@ -77,6 +89,7 @@ There is no automated test suite. The first hardware trial should guide changes 
 ## Files
 
 - `app.py`: sensor polling, debouncing, session decisions, and local HTTP server.
+- `calibration.py`: the table-setup logic (measure empty pads, learn each utensil). Uses `../fork_sensor.py` for pick-up/put-down detection.
 - `static/index.html`: responsive display and polling; no grading or progression logic.
 - `cutlery.json`, `scenarios.json`: editable configuration.
 - `start.sh`: launch using the lab Python environment; forwards command-line options.

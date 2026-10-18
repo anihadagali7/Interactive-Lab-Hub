@@ -6,6 +6,7 @@ import math
 from pathlib import Path
 import signal
 import socket
+import sys
 import threading
 import time
 import uuid
@@ -14,6 +15,10 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import unquote
 
 ROOT = Path(__file__).resolve().parent
+sys.path.insert(0, str(ROOT.parent))  # fork_sensor.py (pad detector, saved calibration) lives in Lab 4
+
+from calibration import TableCalibrator  # noqa: E402
+from fork_sensor import PadDetector, load_calibration, save_calibration  # noqa: E402
 
 
 def image_path(name):
@@ -131,24 +136,57 @@ class Session:
         self.index = 0
         self.attempts = [0] * len(courses)
         self.first_try = 0
-        self.phase = 'waiting'
+        self.phase = 'calibrating'  # table setup comes before the welcome screen
         self.title = 'Welcome to the table'
-        self.message = 'Keep your hands off the utensils while the sensor starts.'
+        self.message = 'Setting the table.'
         self.sensor = 'starting'
         self.error = ''
-        self.touched = []
+        self.touched = []  # names of utensils currently picked up
         self.armed = False
         self.until = 0
+        self.setup = {'step': 'connecting', 'message': 'Connecting to the sensor…', 'items': []}
+        self.setup_cmd = None
 
     def start(self):
         with self.lock:
-            if self.sensor != 'connected':
+            if self.sensor != 'connected' or self.phase == 'calibrating':
                 return False
             if self.phase == 'waiting':
                 self.phase = 'ready'
-                self.message = 'Your dinner is served. Touch one utensil to answer.'
-                self.armed = False  # A held utensil must be released first.
+                self.message = 'Your dinner is served. Pick up one utensil to answer.'
+                self.armed = False  # A utensil already lifted must be put back first.
             return True  # Repeated starts/joining phones never reset progress.
+
+    def sensor_ready(self):
+        with self.lock:
+            self.sensor = 'connected'
+
+    def show_setup(self, view):
+        with self.lock:
+            self.setup = view
+
+    def finish_setup(self):
+        with self.lock:
+            self.phase = 'waiting'
+            self.message = 'Your table is ready.'
+
+    def request_setup(self, command):
+        """A phone asked to measure the empty table, or to redo setup. Returns whether it applies now."""
+        with self.lock:
+            if command == 'measure' and self.phase == 'calibrating' and self.setup['step'] == 'clear':
+                self.setup_cmd = 'measure'
+                return True
+            if command == 'restart' and self.phase in ('calibrating', 'waiting') and self.sensor == 'connected':
+                self.phase = 'calibrating'
+                self.setup = {'step': 'clear', 'message': 'Starting setup again…', 'items': self.setup['items']}
+                self.setup_cmd = 'restart'
+                return True
+            return False
+
+    def take_setup_cmd(self):
+        with self.lock:
+            command, self.setup_cmd = self.setup_cmd, None
+            return command
 
     def cue(self, *clips):
         self.audio_id += 1
@@ -162,18 +200,19 @@ class Session:
                         menu=[{'dish': c['dish'], 'label': c.get('course_label', f'Course {i + 1}'),
                                'status': 'served' if i < self.index else 'current' if i == self.index else 'upcoming'}
                               for i, c in enumerate(self.courses)],
-                        sensor=self.sensor, error=self.error, touched=self.touched,
+                        sensor=self.sensor, error=self.error, touched=self.touched, setup=self.setup,
                         course_number=min(self.index + 1, len(self.courses)), total=len(self.courses),
                         dish=self.courses[self.index]['dish'] if self.index < len(self.courses) else 'Dinner is complete',
                         prompt=self.courses[self.index]['prompt'] if self.index < len(self.courses) else 'Thank you for joining us at the table.',
                         first_try=self.first_try, retries=sum(max(0, n - 1) for n in self.attempts))
 
     def update(self, active, now):
-        # Called only for a stable (debounced) sensor sample.
+        # Called only for a stable (debounced) sensor sample. `active` holds the channels
+        # of utensils that are currently picked up (off their pads).
         with self.lock:
             self.sensor = 'connected'
             self.touched = [self.mapping[ch]['name'] for ch in sorted(active)]
-            if self.phase in ('waiting', 'complete'):
+            if self.phase in ('calibrating', 'waiting', 'complete'):
                 return
             if self.phase == 'correct':
                 if now < self.until or active:
@@ -184,14 +223,14 @@ class Session:
                     self.message = 'Restart the app on the Pi to begin a new dinner.'
                     self.cue(self.sounds.get('end'))
                     return
-                self.phase, self.title, self.message = 'ready', 'Next course', 'Touch one utensil to answer.'
+                self.phase, self.title, self.message = 'ready', 'Next course', 'Pick up one utensil to answer.'
                 self.cue(self.courses[self.index].get('sound'))
                 self.armed = True
                 return
             if not active:
                 self.armed = True
                 if self.title == 'Welcome to the table':
-                    self.message = 'Touch one utensil to answer.'
+                    self.message = 'Pick up one utensil to answer.'
                 return
             if not self.armed:
                 return
@@ -204,14 +243,81 @@ class Session:
             self.attempts[self.index] += 1
             if item['id'] in course['accepted']:
                 self.phase, self.title = 'correct', f"Correct — {item['name']}"
-                self.message = course['explanation'] + ' Release the utensils to continue.'
+                self.message = course['explanation'] + ' Put the utensil back to continue.'
                 self.first_try += self.attempts[self.index] == 1
                 self.until = now + self.duration
                 self.cue(self.sounds.get('correct'))
             else:
                 self.phase, self.title = 'wrong', f"Try again — you chose {item['name']}"
-                self.message = course['hint'] + ' Release the utensils, then choose again.'
+                self.message = course['hint'] + ' Put it back, then choose again.'
                 self.cue(self.sounds.get('incorrect'))
+
+
+class SensorRunner:
+    """Table setup first, then play. `read(channel)` returns an MPR121 filtered value,
+    so this runs without hardware.
+
+    Each utensil rests on its copper pad. Setup learns the empty-pad reading and each
+    utensil's thresholds; during play a utensil counts as selected while it is lifted off
+    its pad (the same pick-up / put-down detection as fork_sensor.py).
+    """
+
+    def __init__(self, session, read):
+        self.session, self.read = session, read
+        self.items = [(item['id'], item['name'], ch) for ch, item in session.mapping.items()]
+        self.calibrator = TableCalibrator([(uid, name) for uid, name, _ in self.items])
+        self.detectors = {}  # channel -> PadDetector; empty while setup is running
+        self.candidate, self.changed = frozenset(), 0
+        session.show_setup(self.calibrator.view())
+        session.sensor_ready()
+
+    def tick(self, now, debounce):
+        command = self.session.take_setup_cmd()
+        if command == 'restart':
+            self.calibrator.reset()
+            self.detectors = {}
+        if not self.detectors:
+            self._setup_tick(command, now)
+        else:
+            self._play_tick(now, debounce)
+
+    def _setup_tick(self, command, now):
+        calibrator = self.calibrator
+        if command == 'measure':
+            calibrator.start_measuring(now)
+        if calibrator.step in ('measuring', 'placing'):
+            calibrator.feed({uid: self.read(ch) for uid, _, ch in self.items}, now)
+        if calibrator.step == 'done':
+            self._finish_setup(now)
+        else:
+            self.session.show_setup(calibrator.view())
+
+    def _finish_setup(self, now):
+        saved = load_calibration()
+        for uid, _, ch in self.items:
+            on, off = self.calibrator.results[uid]
+            detector = PadDetector(self.calibrator.references[uid], on, off)
+            detector.present = True  # setup ends with every utensil resting on its pad
+            self.detectors[ch] = detector
+            saved[uid] = {'on': on, 'off': off}
+        try:
+            save_calibration(saved)  # shared with fork_sensor.py and utensil_quiz.py
+        except OSError as exc:
+            print(f'Could not save calibration: {exc}', flush=True)
+        self.candidate, self.changed = frozenset(), now
+        self.session.finish_setup()
+
+    def _play_tick(self, now, debounce):
+        lifted = set()
+        for ch, detector in self.detectors.items():
+            detector.update(self.read(ch))
+            if not detector.present:
+                lifted.add(ch)
+        active = frozenset(lifted)
+        if active != self.candidate:
+            self.candidate, self.changed = active, now
+        if now - self.changed >= debounce:
+            self.session.update(active, now)
 
 
 def sensor_loop(session, debounce, stop, mapping_mode):
@@ -224,22 +330,30 @@ def sensor_loop(session, debounce, stop, mapping_mode):
         import adafruit_mpr121
         i2c = busio.I2C(board.SCL, board.SDA)
         sensor = adafruit_mpr121.MPR121(i2c)
-        candidate, changed = None, time.monotonic()
-        reported = None
-        while not stop.is_set():
-            raw = frozenset(i for i in range(12) if sensor[i].value)
-            active = raw if mapping_mode else raw.intersection(session.mapping)
-            now = time.monotonic()
-            if active != candidate:
-                candidate, changed = active, now
-            if now - changed >= debounce:
-                if mapping_mode:
-                    if active != reported:
-                        print('Touched channels: ' + (', '.join(map(str, sorted(active))) or 'none'), flush=True)
-                        reported = active
-                else:
-                    session.update(active, now)
-            stop.wait(0.02)
+        if mapping_mode:
+            candidate, changed = None, time.monotonic()
+            reported = None
+            while not stop.is_set():
+                active = frozenset(i for i in range(12) if sensor[i].value)
+                now = time.monotonic()
+                if active != candidate:
+                    candidate, changed = active, now
+                if now - changed >= debounce and active != reported:
+                    print('Touched channels: ' + (', '.join(map(str, sorted(active))) or 'none'), flush=True)
+                    reported = active
+                stop.wait(0.02)
+        else:
+            runner = SensorRunner(session, sensor.filtered_data)
+            failures = 0
+            while not stop.is_set():
+                try:
+                    runner.tick(time.monotonic(), debounce)
+                    failures = 0
+                except OSError:
+                    failures += 1  # tolerate a dropped I2C read, but not a dead sensor
+                    if failures > 50:
+                        raise
+                stop.wait(0.02)
     except Exception as exc:
         message = f'{type(exc).__name__}: {exc}'
         print(f'Sensor unavailable: {message}\nCheck wiring and the Lab 4 Python environment, then restart.', flush=True)
@@ -270,11 +384,15 @@ def main():
 
     class Handler(BaseHTTPRequestHandler):
         def do_POST(self):
-            if self.path != '/api/start':
+            if self.path == '/api/start':
+                ok = session.start()
+                body = json.dumps({'started': ok}).encode()
+            elif self.path in ('/api/setup/measure', '/api/setup/restart'):
+                ok = session.request_setup(self.path.rsplit('/', 1)[1])
+                body = json.dumps({'accepted': ok}).encode()
+            else:
                 self.send_error(404)
                 return
-            ok = session.start()
-            body = json.dumps({'started': ok}).encode()
             self.send_response(200 if ok else 503)
             self.send_header('Content-Type', 'application/json')
             self.send_header('Cache-Control', 'no-store')
