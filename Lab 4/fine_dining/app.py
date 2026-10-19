@@ -18,12 +18,17 @@ ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT.parent))  # fork_sensor.py (pad detector, saved calibration) lives in Lab 4
 
 from calibration import TableCalibrator  # noqa: E402
+from fork_sensor import PadDetector, load_calibration, save_calibration  # noqa: E402
 
 # How long a utensil may stay off its pad before the phone reminds the diner to put it back.
 REMIND_AFTER_CORRECT = 2  # seconds after the correct-answer feedback time has ended
 REMIND_AFTER_WRONG = 5    # seconds after a wrong answer
-REMIND_AFTER_OTHER = 3    # seconds when a utensil was already up at the start, or two were lifted at once
-from fork_sensor import PadDetector, load_calibration, save_calibration  # noqa: E402
+REMIND_AFTER_OTHER = 3    # seconds when a utensil was already up at the start
+
+# An answer can be several utensils at once. While what is in the diner's hand could still grow
+# into a correct answer (for example the fork alone, when the steak needs fork + knife), the Pi
+# waits this long for the rest before judging.
+ANSWER_SETTLE = 2.0
 
 
 def image_path(name):
@@ -64,6 +69,40 @@ def nonempty(value, label):
     if not isinstance(value, str) or not value.strip():
         raise ValueError(f"{label} must be nonempty text.")
     return value
+
+
+def parse_answers(accepted, enabled_ids, label):
+    """`accepted` lists alternative correct answers. Each is a utensil ID (that utensil alone) or a
+    list of IDs (those utensils picked up together). Returns a list of frozensets of IDs."""
+    if not isinstance(accepted, list) or not accepted:
+        raise ValueError(f'{label}: accepted must be a nonempty list.')
+    answers = []
+    for entry in accepted:
+        ids = [entry] if isinstance(entry, str) else entry
+        if (not isinstance(ids, list) or not ids or len(set(ids)) != len(ids)
+                or any(not isinstance(x, str) or x not in enabled_ids for x in ids)):
+            raise ValueError(f'{label}: each accepted entry must be an enabled utensil ID, or a list of '
+                             'distinct enabled utensil IDs to pick up together.')
+        answers.append(frozenset(ids))
+    return answers
+
+
+def join_names(names):
+    return names[0] if len(names) == 1 else ', '.join(names[:-1]) + ' and ' + names[-1]
+
+
+def judge(chosen, answers, waited):
+    """Verdict for the utensils currently in hand: True (correct), False (wrong), or None (wait).
+
+    Waits only while the diner could still add utensils to reach a correct answer, and
+    never longer than ANSWER_SETTLE seconds since the set last changed.
+    """
+    could_grow = any(chosen < answer for answer in answers)
+    if chosen in answers:
+        return True if not could_grow or waited >= ANSWER_SETTLE else None
+    if could_grow:
+        return False if waited >= ANSWER_SETTLE else None
+    return False
 
 
 def load_config():
@@ -124,9 +163,7 @@ def load_config():
             if (ROOT / 'static/sounds' / name).exists():
                 course['sound'] = name
         sound_duration(course.get('sound'))
-        accepted = course['accepted']
-        if not isinstance(accepted, list) or not accepted or any(not isinstance(x, str) or x not in enabled_ids for x in accepted):
-            raise ValueError(f'Course {i}: accepted must list enabled utensil IDs.')
+        course['answers'] = parse_answers(course['accepted'], enabled_ids, f'Course {i}')
     return enabled, courses, debounce, duration, sounds
 
 
@@ -149,6 +186,8 @@ class Session:
         self.touched = []  # names of utensils currently picked up
         self.armed = False
         self.until = 0
+        self.pending = None  # utensil IDs in hand while an answer is still being put together
+        self.pending_since = 0
         self.reminder = ''  # shown on the phone while a utensil should be back on its pad
         self.remind_from = None
         self.setup = {'step': 'connecting', 'message': 'Connecting to the sensor…', 'items': []}
@@ -160,7 +199,7 @@ class Session:
                 return False
             if self.phase == 'waiting':
                 self.phase = 'ready'
-                self.message = 'Your dinner is served. Pick up one utensil to answer.'
+                self.message = 'Your dinner is served. Pick up the utensil or utensils you would use.'
                 self.armed = False  # A utensil already lifted must be put back first.
             return True  # Repeated starts/joining phones never reset progress.
 
@@ -227,8 +266,7 @@ class Session:
             self.reminder = ''
             return
         names = [self.mapping[ch]['name'].lower() for ch in sorted(active)]
-        joined = names[0] if len(names) == 1 else ', '.join(names[:-1]) + ' and ' + names[-1]
-        self.reminder = f"Please put the {joined} back on {'its pad' if len(names) == 1 else 'their pads'} and press down."
+        self.reminder = f"Please put the {join_names(names)} back on {'its pad' if len(names) == 1 else 'their pads'} and press down."
 
     def update(self, active, now):
         # Called only for a stable (debounced) sensor sample. `active` holds the channels
@@ -249,33 +287,39 @@ class Session:
                     self.message = 'Restart the app on the Pi to begin a new dinner.'
                     self.cue(self.sounds.get('end'))
                     return
-                self.phase, self.title, self.message = 'ready', 'Next course', 'Pick up one utensil to answer.'
+                self.phase, self.title, self.message = 'ready', 'Next course', 'Pick up the utensil or utensils you would use.'
                 self.cue(self.courses[self.index].get('sound'))
                 self.armed = True
                 return
             if not active:
                 self.armed = True
+                self.pending = None
                 if self.title == 'Welcome to the table':
-                    self.message = 'Pick up one utensil to answer.'
+                    self.message = 'Pick up the utensil or utensils you would use.'
                 return
             if not self.armed:
                 return
-            self.armed = False
-            if len(active) != 1:
-                # Ambiguous touches are ignored without feedback or a penalty.
-                return
-            item = self.mapping[next(iter(active))]
+            # The answer is whatever is in the diner's hand. It is judged straight away unless it
+            # could still grow into a correct answer, in which case judge() waits up to ANSWER_SETTLE.
+            chosen = frozenset(self.mapping[ch]['id'] for ch in active)
+            if chosen != self.pending:
+                self.pending, self.pending_since = chosen, now
             course = self.courses[self.index]
+            verdict = judge(chosen, course['answers'], now - self.pending_since)
+            if verdict is None:
+                return  # could still become a correct answer: wait for the rest
+            self.armed, self.pending = False, None
+            names = join_names([self.mapping[ch]['name'] for ch in sorted(active)])
             self.attempts[self.index] += 1
-            if item['id'] in course['accepted']:
-                self.phase, self.title = 'correct', f"Correct — {item['name']}"
-                self.message = course['explanation'] + ' Put the utensil back to continue.'
+            if verdict:
+                self.phase, self.title = 'correct', f"Correct — {names}"
+                self.message = course['explanation'] + ' Put your utensils back to continue.'
                 self.first_try += self.attempts[self.index] == 1
                 self.until = now + self.duration
                 self.cue(self.sounds.get('correct'))
             else:
-                self.phase, self.title = 'wrong', f"Try again — you chose {item['name']}"
-                self.message = course['hint'] + ' Put it back, then choose again.'
+                self.phase, self.title = 'wrong', f"Try again — you chose {names}"
+                self.message = course['hint'] + ' Put your utensils back, then choose again.'
                 self.cue(self.sounds.get('incorrect'))
 
 
