@@ -135,9 +135,14 @@ For Part 2, build the Feast Automata interaction you developed in Part D by conn
 
 **Document your system with:**
 - Code for your sensing + actuation prototype
+	- All code is in the /fine_dining folder
 - Photos and/or video of the working prototype in action
+	- https://drive.google.com/file/d/1w5CJkUc3LJbKacPssRfXj9YGkljTIEM5/view?usp=drive_link
 - A simple interaction diagram or sketch showing how sensing and actuation are connected
+	![How sensing is connected](sensing_diagram.svg)
+	(The diagram was made with AI, but I inputted the system design and idea of how everything is covered)
 - Written reflection: What did you learn about connecting sensing, movement, and physical form? What was fun, surprising, or challenging?
+	- I learned a lot about physical prototyping through this lab. Even creating the paper prototype was difficult and needed time and effort to get it right. I am used to software, and how easy it is to manipulate and change as I need, but physical resources are much harder. One thing I needed to seek out was a way to demonstrate wire, which caused my to ask my mom if she had any yarn laying around. It forced me to be creative, which was a different skill I had to learn. It was really fun to see a physical end product which I could easily show friends and family, but I would say it was really challenging to work with the copper tape and making sure to get the connection just right. 
 
 **Questions to consider:**
 - How does your chosen sensor or input shape the physical response?
