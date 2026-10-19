@@ -173,8 +173,19 @@ See encoder_accel_servo_dashboard.py in the Lab 4 folder for an optional example
 Document all the prototypes and iterations you have designed and worked on! Again, deliverables for this lab are writings, sketches, photos, and videos that show what your prototype:
 
 - "Looks like": shows how the device should look, feel, sit, weigh, etc.
+  - A cardboard place setting. Three copper-tape pads sit on the card, with a real spoon, knife and fork resting one per pad. The Pi, the MPR121 breakout and the Servo pHAT are tucked out of sight, and a phone stands beside the setting as the "menu."
 - "Works like": shows what the device can do
+  - A utensil resting on a pad changes that pad's reading, and the MPR121 reports it over I²C to the Pi.
+  - The Pi runs a short table setup to learn each pad. Then it works out which utensils are lifted and judges the answer, including multi-utensil ones like fork and knife for the steak.
+  - It serves a four-course dinner (lobster bisque, burrata, filet mignon, torte) to the phone over local Wi-Fi, with photos, the waiter's voice, and green or red feedback.
+  - Limits: it senses pads, not utensils, so a plastic utensil is invisible
 - "Acts like": shows how a person would interact with the device
+  - Open the page on your phone and set the table: clear it, tap measure, then place each utensil when prompted.
+  - Tap Start dinner and listen to the waiter introduce the course.
+  - Pick up the utensil or utensils you'd use. The phone shows "In hand: …" while it waits.
+  - See the result, green for correct or red for wrong with a hint, and hear the waiter respond.
+  - Put the utensils back to continue. If you forget, a banner reminds you after a couple of seconds.
+  - After the last course, see how many you got right on the first try.
 
 ---
 
