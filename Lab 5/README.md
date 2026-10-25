@@ -1,6 +1,7 @@
 # Observant Systems: Overnight Sensation
 
 **NAMES OF COLLABORATORS HERE**
+Anirudha Hadagali
 
 For lab this week, we focus on creating interactive systems that can detect and respond to events or stimuli in the environment of the Pi, like the Boat Detector we mentioned in lecture. 
 Your **observant device** could, for example, count items, find objects, recognize an event or continuously monitor a room.
@@ -142,7 +143,7 @@ Then press q to quit and run it again with a flag. Each one changes a single thi
 ```
 
 \*\*\***Include a short video or screenshots of the person detection.**\*\*\*
-
+https://drive.google.com/file/d/1QjaTfXu2doeILoH-bV_uDEk6hVRbP9bj/view?usp=drive_link
 
 ## Part C. 
 ### See more: hands and pose with MediaPipe
@@ -171,8 +172,7 @@ Consider how you might use this position based approach to create an interaction
 \*\*\***Include a screenshot or short video of the hand pose demo, and write how you might use face, hand or body pose tracking in your observant system.**\*\*\*
 
 <img width="1680" height="1050" alt="Screenshot 2026-10-25 at 7 04 19 PM" src="https://github.com/user-attachments/assets/b2e5adaa-4b81-425e-99d4-8b2c608a4fcf" />
-<img width="1680" height="1050" alt="Screenshot 2026-10-25 at 7 04 38 PM" src="https://github.com/user-attachments/assets/cbb9f43d-aa29-4c45-8dee-fb336ecc93e3" /><img width="1680" height="1050" alt="Screenshot 2026-10-25 at 7 09 13 PM" src="https://github.com/user-attachments/assets/e257d894-8fd9-4e28-a130-beffafbfabad" />
-<img width="1680" height="1050" alt="Screenshot 2026-10-25 at 7 12 43 PM" src="https://github.com/user-attachments/assets/aa41d332-9d0d-49cd-91e9-adfca4e3a783" />
+<img width="1680" height="1050" alt="Screenshot 2026-10-25 at 7 04 38 PM" src="https://github.com/user-attachments/assets/cbb9f43d-aa29-4c45-8dee-fb336ecc93e3" />
 
 
 video: https://drive.google.com/file/d/1GjwYZ4l_DMrZrlUOkL9FgXhslA9-UniY/view?usp=drive_link 
