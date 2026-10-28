@@ -158,10 +158,17 @@ You can look in `image.py` for an example of how to display an image on the scre
 
 \*\*\***Include a picture of your own Raspberry Pi displaying the piscreen.service with your unique MAC address. Additionally, please provide another picture showing the successful completion of the screen test.**\*\*\*
 
+<img width="3024" height="4032" alt="IMG_5929" src="https://github.com/user-attachments/assets/398094ce-75d3-4f50-bd1d-eccb39d61559" />
+
+
+<img width="3024" height="4032" alt="IMG_5934" src="https://github.com/user-attachments/assets/7befc1f4-57d7-4c42-886d-e238e6dfb058" />
 
 ## Part D. 
 ### Set up the Display Clock Demo
 Work on `screen_clock.py`, try to show the time by filling in the while loop (at the bottom of the script where we noted "TODO" for you). You can use the code in `cli_clock.py` and `stats.py` to figure this out.
+
+<img width="3024" height="4032" alt="IMG_5935" src="https://github.com/user-attachments/assets/e5093e16-be6f-4d2f-8485-503a1dd9c8ce" />
+
 
 ### How to Edit Scripts on Pi
 Option 1. One of the ways for you to edit scripts on Pi through terminal is using [`nano`](https://linuxize.com/post/how-to-use-nano-text-editor/) command. You can go into the `screen_clock.py` by typing the follow command line:
@@ -193,10 +200,24 @@ We strongly discourage literal digital or analog clock display: Be creative.
 
 
 ** Insert ideas, sketches, [Verplank diagrams](https://ccrma.stanford.edu/courses/250a-fall-2004/IDSketchbok.pdf)), storyboards for your ideas **
+- Daylight Clock: The display shows the proportion of daylight remaining instead of numeric time. A light sensor could make the device respond to actual brightness.
+- Across the year, show the changing daylight duration as the main signal: short winter arcs, long summer arcs, with spring and fall in between.
+- Use the Pi’s date and time, plus a sunrise/sunset API or astronomical library, to calculate the values.
 
+<img width="1640" height="757" alt="IMG_0014" src="https://github.com/user-attachments/assets/576d70a7-4bba-46ad-952a-502189b71a40" />
 
 
 **Put the names of the people you gave feedback to here. (Even better, add links to their repos here!)**
+
+Feedback:
+- Jonathan Tumalle (jrt285) (https://github.com/jontumalle/Interactive-Lab-Hub/blob/Lab2a/Lab%202/README.md) : The idea of a sun percentage clock is nice to have an idea of how much daytime there's left. It would be nice to see how much daylight you're losing compared to the day before so that users can make the most of the day.
+
+- Ammar Syed: The daylight clock is a super creative alternative to simply displaying the current exact numeric time and it could really help users have a more contextual understanding of how much usable daylight is still left in the day. It's especially cool that this visualization will change throughout the year as there's more daylight in summer months and less in winter months, and the user can feel the seasonal changes happening.
+  - I think combining sunset and sunrise calculations alongside a light sensor could make the clock more accurate to the user's actual environment. Another concern I have is that indoor lighting or cloudy weather could lead to the sensor having inaccurate readings so there likely should really be a calculated daylight percentage of some sort as a main display, with the brightness or color as a secondary effect.
+  - I think you can also use the buttons to perhaps show the exact calculation or sunrise and sunset times if the user wants more details or more precision.
+ 
+- Pallavi Srinivas (https://github.com/pallavi-srinivas/Interactive-Lab-Hub/tree/Fall2026/Lab%202): This is awesome because I think it would allow people to take upon routines that would fit their bodies and allow them to naturally wake up and be functional. I'm curious to see how this would work considering brightness could be determined through a wide variety of factors including but not limited to flashlights, overhead lights, sunlight, etc.
+- Abiola Bolaji (https://github.com/9JAyemi/Interactive-Lab-Hub/blob/Fall2026/Lab%202/README.md): I think this idea is cool. I like the change in representation. Only thing I would say is that it would be nice to have a message on the pi that signified which seasonal period the user was in so it can be more honest about the amount of sunlight expected. It might also be nice to showcase the location of the user too.
 
 # Lab 2 Part 2
 
@@ -237,11 +258,16 @@ Do take advantage of having done the previous iteration to refine and simplify y
 
 ** Insert any updates ideas, sketches, [Verplank diagrams](https://ccrma.stanford.edu/courses/250a-fall-2004/IDSketchbok.pdf))!, storyboards for your ideas **
 
+- I ended up removing the light sensor part of my idea, because I did not have access to those resources. Instead, I hardcoded the location to be New York, and used a Astronomy Python library to calculate the real time sunrise and sunset, and current time.
+- I was able to add more functionalities by using the buttons on the screen that cycled through various other info that could be useful to users.
 
 \*\*\***Put a copy of your code in your Lab 2 Github repo.**\*\*\*
 
+The clock is in daylight_clock.py
+
 \*\*\***Take a video of your PiClock.**\*\*\*
 
+https://github.com/anihadagali7/Interactive-Lab-Hub/blob/anihadagali7-Aug26-Lab/Lab%202/IMG_6030.MOV
 
 As always, make sure you document contributions and ideas from others (and AI) explicitly in your writeup.
 

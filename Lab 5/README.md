@@ -2,7 +2,7 @@
 
 **Team:**
 
-**Members:** Full Name (netid, github-handle), ...
+**Members:** Anirudha Hadagali
 
 **Project name:**
 
@@ -136,6 +136,8 @@ pi@raspberrypi:~ $ ollama list
 
 \*\*\***Include a screenshot of `ollama list` showing your models.**\*\*\*
 
+<img width="602" height="110" alt="Screenshot 2026-10-25 at 5 18 18 PM" src="https://github.com/user-attachments/assets/eb80cd1a-2e79-4ba3-b56e-e0934481163c" />
+
 
 ## Part B. 
 ### See: recognize people in real time with YOLO
@@ -160,8 +162,7 @@ Then press q to quit and run it again with a flag. Each one changes a single thi
 ```
 
 \*\*\***Include a short video or screenshots of your experiments with the person detection. Write down three situations where it did not see you, or saw a person who was not there, and what you think the cause was.**\*\*\*
-
-
+https://drive.google.com/file/d/1QjaTfXu2doeILoH-bV_uDEk6hVRbP9bj/view?usp=drive_link
 
 ## Part C. 
 ### See more: hands and pose with MediaPipe
@@ -188,6 +189,12 @@ Try the two main features of this script: 1) pinching for percentage control (th
 Consider how you might use this position based approach to create an interaction, and write how you might use it on either face, hand or body pose tracking.
 
 \*\*\***Include a screenshot or short video of the hand pose demo, and write how you might use face, hand or body pose tracking in your observant system.**\*\*\*
+
+<img width="1680" height="1050" alt="Screenshot 2026-10-25 at 7 04 19 PM" src="https://github.com/user-attachments/assets/b2e5adaa-4b81-425e-99d4-8b2c608a4fcf" />
+<img width="1680" height="1050" alt="Screenshot 2026-10-25 at 7 04 38 PM" src="https://github.com/user-attachments/assets/cbb9f43d-aa29-4c45-8dee-fb336ecc93e3" />
+
+
+video: https://drive.google.com/file/d/1GjwYZ4l_DMrZrlUOkL9FgXhslA9-UniY/view?usp=drive_link 
 
 
 ## Part D. 
@@ -222,9 +229,9 @@ A 0.8B model is slow and sometimes wrong. It will invent events that are not in 
 
 \*\*\***Ask Qwen three questions to answer. Paste the questions, the answers and how long each took. Try one of them with `qwen3:0.6b` and compare.**\*\*\*
 
-<details>
-  Q&A here
-</details>
+<img width="1680" height="1050" alt="Screenshot 2026-10-25 at 7 12 43 PM" src="https://github.com/user-attachments/assets/d5015b02-a219-40bd-a0de-6df22f5d150b" />
+<img width="1680" height="1050" alt="Screenshot 2026-10-25 at 7 09 13 PM" src="https://github.com/user-attachments/assets/7d2bfc92-6d02-4f05-9bf6-c1d0c7615cc5" />
+
 
 
 ## Part E. 
@@ -258,6 +265,9 @@ asking Qwen...
 Qwen (18.4 s):
 One person came in from the right, moved close to the camera, and left after about half a minute. ...
 ```
+
+<img width="1680" height="1050" alt="Screenshot 2026-10-25 at 7 18 13 PM" src="https://github.com/user-attachments/assets/3cefa950-e5f7-454c-9e50-9b31ff16db67" />
+
 
 ---
 
