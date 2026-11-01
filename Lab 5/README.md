@@ -155,22 +155,27 @@ Document all the prototypes and iterations you have designed and worked on. The 
 
 \*\*\***Include a short video of the whole system**\*\*\*
 
-As always, make sure you document contributions and ideas from others (and AI) explicitly in your writeup.
+1. Screen to upload photos
+  <img width="590" height="1278" alt="IMG_6575" src="https://github.com/user-attachments/assets/eb735100-dec6-4da9-99d2-fec388ba62dc" />
 
-You are permitted (but not required) to work in groups and share a turn in; you are expected to make equal contribution on any group work you do, and N people's group project should look like N times the work of a single person's lab. Make sure the page for the group turn in is linked to your personal Interactive Lab Hub page.
+2. Once photos are uploaded, Qwen starts to caption each picture
+   <img width="590" height="1278" alt="IMG_6576" src="https://github.com/user-attachments/assets/d724b5b7-f459-487b-a0dd-ccce002d1140" />
 
-## Deliverables & Submission for Lab 5
+3. Qwen has come up with captions for each picture, and user has to approve and save. User can also force Qwen to redo the caption
+   <img width="590" height="1278" alt="IMG_6578" src="https://github.com/user-attachments/assets/cb787318-2d5a-49c9-b47b-d2a3f5d9349e" />
 
-For submission, the readme.md page for this lab should be edited to include the work you have done:
-* Upload any materials that explain what you did, including your code and night log, into your Lab 5 repository, and link them in your Lab 5 readme.md.
-* Labs are due on Sundays, make sure to submit your Lab 5 readme.md to Canvas.
+4. Once all photos are captioned and approved, user can ask Qwen to write a story
+   <img width="590" height="1278" alt="IMG_6579" src="https://github.com/user-attachments/assets/d69fd1ec-a2d1-4fac-96f9-5964bd66037c" />
 
-<details>
-  <summary><strong>Submission Cleanup Reminder (Click to Expand)</strong></summary>
+5. After the story is written and approved, it can be converted to a song using Qwen
+   <img width="590" height="1278" alt="IMG_6580" src="https://github.com/user-attachments/assets/3a7ff10b-5be1-4523-afc6-2892801e7392" />
 
-  **Before submitting your README.md:**
-  - This readme.md file has a lot of extra text for guidance.
-  - Remove all instructional text and example prompts from this file.
-  - You may either delete these sections or use the toggle/hide feature in VS Code to collapse them for a cleaner look.
-  - Your final submission should be neat, focused on your own work, and easy to read for grading.
-</details>
+   <img width="1680" height="1050" alt="Screenshot 2026-11-01 at 9 56 35 AM" src="https://github.com/user-attachments/assets/78182df5-641c-44ca-92f1-41463913fae3" />
+
+
+
+ 
+
+
+
+
