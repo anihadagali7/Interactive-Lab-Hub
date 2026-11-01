@@ -103,6 +103,8 @@ Use storyboards and/or [Verplank diagrams](https://ccrma.stanford.edu/courses/25
 
 \*\*\***Insert ideas, sketches, Verplank diagrams and storyboards for your night-time interaction here.**\*\*\*
 
+https://github.com/anihadagali7/Interactive-Lab-Hub/blob/lab5part2/Lab%205/storyboard.pdf
+
 ## Prep for Part 2
 
 1. Look at and give feedback on the Part F storyboards.
