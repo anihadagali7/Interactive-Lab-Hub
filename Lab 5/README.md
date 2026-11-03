@@ -91,35 +91,19 @@ Two house rules. Sample rather than stream: one look every 5 to 30 seconds is pl
 ## Part F. 
 ### Read Part 2 and storyboard your night-time interaction
 
-Storyboard a night-time interaction built on your observant system, in three panels:
-
-1. **Before bed.** How does the person hand the night over, and how does the device acknowledge it?
-2. **While asleep.** What does the device watch or work through?
-3. **When awake.** What is the one thing the person learns, and in what medium?
-
-Stuck? A kitchen that tells you who raided the fridge. A desk that reports whether you actually went to bed. A window that names the quietest hour. A plant that describes its night. Find something better.
-
 Use storyboards and/or [Verplank diagrams](https://ccrma.stanford.edu/courses/250a-fall-2004/IDSketchbok.pdf).
 
 \*\*\***Insert ideas, sketches, Verplank diagrams and storyboards for your night-time interaction here.**\*\*\*
 
-https://github.com/anihadagali7/Interactive-Lab-Hub/blob/lab5part2/Lab%205/storyboard.pdf
+https://github.com/anihadagali7/Interactive-Lab-Hub/blob/Fall2026/Lab%205/storyboard.pdf
 
 ## Prep for Part 2
 
-1. Look at and give feedback on the Part F storyboards.
-   **Put the feedback for your ideas here.**
-2. [Update your Lab Hub](prep.md#get-the-latest-content) to get the latest content for Part 2.
-3. Decide where the device will spend the night and who else lives there. Get their OK before the first run.
-4. Revise your storyboard with the feedback and with what you learned in Part E about where the pipeline breaks.
-
 \*\*\***Post your revised storyboard here.**\*\*\*
-https://github.com/anihadagali7/Interactive-Lab-Hub/blob/lab5part2/Lab%205/Lab%205%20part%202f%20revised.pdf
+https://github.com/anihadagali7/Interactive-Lab-Hub/blob/Fall2026/Lab%205/Lab%205%20part%202f%20revised.pdf
 
 ## Part G. 
 ### Design the interaction before
-
-The hand-off: the person tells the device what to watch tonight, and the device acknowledges it. Keep it to a thirty-second ritual. A button or a touch (Lab 4), a spoken sentence (Lab 3), a wave or a Quiet Coyote at the camera (Part C). The acknowledgement can be a line on the display, a tone, or an LED that dims rather than lights up. At its simplest, the hand-off just sets the question that the morning will answer.
 
 \*\*\***Describe the interaction before.**\*\*\*
 Before we go and sleep for the night, we need to make sure we upload all of the photos into the portal. Once that is completed and saved, Qwen will go through and caption each photo. It is very important for users to make sure to approve the captions, as that is a necessary piece before Qwen begins to create a story through the captions.
@@ -142,12 +126,6 @@ Here is the final story and lyrics it generated:
 
 
 ## Final documentation
-
-Document all the prototypes and iterations you have designed and worked on. The deliverables for this lab are writings, sketches, photos, and videos that show what your system:
-
-* "Looks like": how the device sits in the room at night, and what it looks like at bedtime and in the morning.
-* "Works like": the pipeline from detector to interpreter to log to reasoner, with a real night's data.
-* "Acts like": how a person hands the night over and what they get back.
 
 \*\*\***Include a short video of the whole system**\*\*\*
 
