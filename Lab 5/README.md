@@ -114,6 +114,7 @@ https://github.com/anihadagali7/Interactive-Lab-Hub/blob/lab5part2/Lab%205/story
 4. Revise your storyboard with the feedback and with what you learned in Part E about where the pipeline breaks.
 
 \*\*\***Post your revised storyboard here.**\*\*\*
+https://github.com/anihadagali7/Interactive-Lab-Hub/blob/lab5part2/Lab%205/Lab%205%20part%202f%20revised.pdf
 
 ## Part G. 
 ### Design the interaction before
@@ -121,31 +122,24 @@ https://github.com/anihadagali7/Interactive-Lab-Hub/blob/lab5part2/Lab%205/story
 The hand-off: the person tells the device what to watch tonight, and the device acknowledges it. Keep it to a thirty-second ritual. A button or a touch (Lab 4), a spoken sentence (Lab 3), a wave or a Quiet Coyote at the camera (Part C). The acknowledgement can be a line on the display, a tone, or an LED that dims rather than lights up. At its simplest, the hand-off just sets the question that the morning will answer.
 
 \*\*\***Describe the interaction before.**\*\*\*
+Before we go and sleep for the night, we need to make sure we upload all of the photos into the portal. Once that is completed and saved, Qwen will go through and caption each photo. It is very important for users to make sure to approve the captions, as that is a necessary piece before Qwen begins to create a story through the captions.
 
 ## Part H. 
 ### Incorporate the observant system
 
-The Part E pipeline becomes the night shift. `overnight.py` runs your `interpret()` from `yolo_to_qwen.py` every few seconds, people only unless you pass `--all`, and writes the readings to `night_log.jsonl`; the reasoning waits for the morning. Start it inside `tmux` so it keeps running after you close your laptop, and stop it with Ctrl-C in the morning:
-
-```
-(.venv) pi@raspberrypi:~/Interactive-Lab-Hub/Lab 5 $ tmux new -s night
-(.venv) pi@raspberrypi:~/Interactive-Lab-Hub/Lab 5 $ python overnight.py
-```
-
-Fake a night first: run it for thirty seconds while you walk around, stop it, and run `morning.py` from Part I. When that looks right, run a real night. If your storyboard needs a sensor rather than the camera, swap in the Lab 4 example code and log its reading the same way.
-
 \*\*\***Screenshots or videos of the running system.**\*\*\*
+
+You can see in the logs that the picture got uploaded, and the log of Qwen coming up with a caption in 126 seconds. 2 mins approx per picture over 15 pictures is a long time.
+
+<img width="1680" height="1050" alt="Screenshot 2026-10-30 at 5 38 37 PM" src="https://github.com/user-attachments/assets/a93d3638-0039-405d-8cea-ce96ea552a64" />
+
 
 ## Part I. 
 ### Design the interaction after
 
-The reveal. The night produced a log; the morning turns it into something a half-awake person can take in. `morning.py` is the smallest version: it asks Qwen for a three-sentence report.
+Here is the final story and lyrics it generated:
+<img width="1680" height="1050" alt="Screenshot 2026-11-01 at 9 56 35 AM" src="https://github.com/user-attachments/assets/7e6ae7e6-ff31-47e6-9860-044cc2823c4e" />
 
-```
-(.venv) pi@raspberrypi:~/Interactive-Lab-Hub/Lab 5 $ python morning.py
-```
-
-Make it yours: show the report on the Mini PiTFT, read it aloud with Piper from Lab 3, plot the night as a timeline, or ask for JSON (`--json`, Part D) and move a servo. Whatever you pick, make sure it is honest about a night in which nothing happened.
 
 ## Final documentation
 
