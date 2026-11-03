@@ -6,17 +6,31 @@ own reveal (a display, a voice, a plot, a servo...).
     python morning.py                          # print the report
     python morning.py --model qwen3:0.6b
     python morning.py --log some_other.jsonl
+    python morning.py --story some/state.json  # where photo_story.py saved the story and song
+
+If photo_story.py has written a story and song, they are shown first.
 """
 import argparse
 import collections
 import json
+import os
 
 import requests
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--log", default="night_log.jsonl")
 parser.add_argument("--model", default="qwen3.5:0.8b")
+parser.add_argument("--story", default="photo_story/state.json")
 args = parser.parse_args()
+
+if os.path.exists(args.story):
+    saved = json.load(open(args.story))
+    if saved.get("story"):
+        print("=== Last night's story ===\n" + saved["story"] + "\n")
+    if saved.get("song"):
+        print("=== Your song ===\n" + saved["song"] + "\n")
+if not os.path.exists(args.log):               # no night was recorded: the story and song are the whole morning
+    raise SystemExit
 
 entries = [json.loads(line) for line in open(args.log) if line.strip()]
 readings = [e for e in entries if "reading" in e]
