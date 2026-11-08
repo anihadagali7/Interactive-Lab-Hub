@@ -121,54 +121,20 @@ The host Pi runs the rules (rounds, eliminations, wins). Every Pi reads its own 
 - The host gets a 4-digit room code; the other players enter it to join.
 - Solo test with bots: `python play.py --simulate`
 
-<!-- TODO: add photos of each Pi setup -->
-
 **4. User Testing**
 
-<!-- TODO: fill in after testing with 2+ non-team members -->
 - Photos/video:
+https://drive.google.com/file/d/1ZPRPN51pXGtP2iviKzyrfN8HcmuK6qzZ/view?usp=drive_link
 - Expectations before playing:
+They initially were unsure how the game was played. We had to provide some context description about the origin of the game, which came from a TikTok trend during Covid. A few users had heard of the game, other hadn't.
 - What surprised them:
+It surprised them how easily and quickly the choices were sent from each Pi and then received by the others, so that all devices showed the same data and there was no latency. 
 - What they'd change:
+They were confused about the joystick calibration and wanted it to be changed. Setting up the game was easy enough, but we had a team member be the host so it would go smoothly. 
+
 
 **5. Reflection**
 
-<!-- TODO: what worked, network/timing issues, what we'd improve -->
-
-
----
-
-## Code Files
-
-**Server files:**
-- `app.py` - Pixel grid server (Flask + WebSocket + MQTT)
-- `mqtt_viewer.py` - MQTT message viewer for debugging
-- `mqtt_bridge.py` - MQTT → WebSocket bridge
-- `requirements-server.txt` - Server dependencies
-
-**Pi files:**
-- `pixel_grid_publisher.py` - Example (RGB sensor → MQTT)
-- `requirements-pi.txt` - Pi dependencies
-
-**Web interface:**
-- `templates/grid.html` - Pixel grid display
-- `templates/controller.html` - Color picker
-- `templates/mqtt_viewer.html` - Message viewer
-
----
-
-## Submission Checklist
-
-Before submitting:
-- [ ] Delete prep/instructions above
-- [ ] Add YOUR project documentation
-- [ ] Include photos/videos/diagrams  
-- [ ] Document user testing with non-team members
-- [ ] Add reflection on learnings
-- [ ] List team names at top
-
-**Your README = story of what YOU built!**
-
----
-
-Resources: [MQTT Guide](https://www.hivemq.com/mqtt-essentials/) | [Paho Python](https://www.eclipse.org/paho/index.php?page=clients/python/docs/index.php) | [Flask-SocketIO](https://flask-socketio.readthedocs.io/)
+- **What worked:** MQTT kept all four Pis in sync. Choices showed up on every screen with no noticeable delay, which was what surprised testers most. Running the rules on the host and the screen and sound on each Pi meant every device always showed the same game state.
+- **What didn't:** Joystick calibration confused testers. New players also needed the game explained to them first, since not everyone knew the TikTok trend it comes from.
+- **What we'd improve:** Make calibration automatic or guide players through it on screen. Add a short how-to-play screen before the first round. Make hosting simple enough that a non-team member could do it; during testing, a team member hosted.
