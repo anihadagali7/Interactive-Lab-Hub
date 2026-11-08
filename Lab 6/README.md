@@ -93,21 +93,47 @@ Replace this README with your documentation:
 
 **1. Project Description**
 
+**Look Away**: a 4-player networked game across four Pis ([look-away/](look-away/)). One solo player plays against three teammates. Each round, everyone secretly picks a direction on a Qwiic joystick. Every teammate who matches the solo player's direction is eliminated. The solo player wins by eliminating everyone; the team wins if anyone survives 5 rounds. Empty seats are filled by AI bots, and the solo role rotates on replay.
 
 **2. Architecture Diagram**
 
+```mermaid
+flowchart LR
+    J[Qwiic joysticks] --> P[4 Pis]
+    P <-->|MQTT| B[Course broker]
+    B <--> H[Host Pi: rules]
+    P --> O[MiniPiTFT + speaker]
+```
+
+The host Pi runs the rules (rounds, eliminations, wins). Every Pi reads its own joystick and draws its own screen and sound. Topics live under `IDD/look-away/<room-code>/`:
+
+| Topic | Purpose |
+| --- | --- |
+| `hello` / `pong` | Join, heartbeat, clock sync |
+| `reject` | Join refused (room full, etc.) |
+| `choice` | Player's locked direction for the round |
+| `state` | Host broadcasts game state every 100 ms |
 
 **3. Build Documentation**
 
+- Hardware: Pi + MiniPiTFT (Lab 2 wiring) + Qwiic joystick + speaker
+- Run: `cd look-away && pip install -r requirements.txt && sudo systemctl stop piscreen.service && python play.py`
+- The host gets a 4-digit room code; the other players enter it to join.
+- Solo test with bots: `python play.py --simulate`
+
+<!-- TODO: add photos of each Pi setup -->
 
 **4. User Testing**
-- **Test with 2+ people NOT on your team**
-- Photos/video of use
-- What did they think before trying?
-- What surprised them?
-- What would they change?
+
+<!-- TODO: fill in after testing with 2+ non-team members -->
+- Photos/video:
+- Expectations before playing:
+- What surprised them:
+- What they'd change:
 
 **5. Reflection**
+
+<!-- TODO: what worked, network/timing issues, what we'd improve -->
 
 
 ---
