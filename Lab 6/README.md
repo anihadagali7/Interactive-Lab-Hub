@@ -124,7 +124,7 @@ The host Pi runs the rules (rounds, eliminations, wins). Every Pi reads its own 
 **4. User Testing**
 
 - Photos/video:
-https://drive.google.com/file/d/1ZPRPN51pXGtP2iviKzyrfN8HcmuK6qzZ/view?usp=drive_link
+https://drive.google.com/file/d/1ZPRPN51pXGtP2iviKzyrfN8HcmuK6qzZ/view 
 - Expectations before playing:
 They initially were unsure how the game was played. We had to provide some context description about the origin of the game, which came from a TikTok trend during Covid. A few users had heard of the game, other hadn't.
 - What surprised them:
