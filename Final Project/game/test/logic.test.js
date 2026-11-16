@@ -4,7 +4,7 @@ import {
   N, ROAD, BLOCK, SIZE, PLACES, BLOCK_PLAN, roadPos, blockMin, nearestNodes, nodePos,
   route, routeLength, exitsFrom, mulberry32,
 } from '../src/layout.js';
-import { speedStars, safetyStars, chatStars, rateTrip, fareFor, parTime } from '../src/scoring.js';
+import { speedStars, safetyStars, chatStars, rateTrip, fareFor, parTime, repairCost } from '../src/scoring.js';
 
 const onARoad = p => {
   for (let k = 0; k <= N; k++) {
@@ -96,8 +96,14 @@ test('scoring: stars stay in 1..5 and move the right way', () => {
   assert.equal(chatStars([5, 3, 1]), 3);
   const perfect = rateTrip({ seconds: par * 0.5, par, damage: 0, chatScores: [5, 5] });
   assert.equal(perfect.overall, 5);
-  const awful = rateTrip({ seconds: par * 5, par, damage: 9, chatScores: [1] });
+  const awful = rateTrip({ seconds: par * 5, par, damage: 9, rulePenalty: 9, chatScores: [1] });
   assert.equal(awful.overall, 1);
+  // breaking road rules alone costs stars, even on a fast, safe, friendly trip
+  const lawless = rateTrip({ seconds: par * 0.5, par, damage: 0, rulePenalty: 2.4, chatScores: [5] });
+  assert.equal(lawless.rules, 2.6);
+  assert.ok(lawless.overall < 5 && lawless.overall > 4);
+  assert.equal(repairCost(100), 0);
+  assert.ok(repairCost(40) > repairCost(80));
   assert.ok(fareFor(400, 5).tip > fareFor(400, 4.2).tip);
   assert.equal(fareFor(400, 3.9).tip, 0);
 });

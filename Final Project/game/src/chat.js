@@ -4,6 +4,7 @@
 //
 // The voice version (microphone -> Qwen -> Piper on the Pi) replaces this class and keeps
 // the same four methods: start(rider), update(dt), react(kind), stop() -> scores.
+// react() is how the game tells the rider what the driver just did (ran a red light, crashed...).
 
 const REPLY_SECONDS = 9;
 const FIRST_LINE_AFTER = 2.5;
@@ -121,7 +122,15 @@ const REACTIONS = {
   crash: ['Are you trying to kill us?!', 'Let me out of this car!', 'Oh my gosh!', 'My neck!'],
   nitro: ["Whoa, okay, we're flying!", 'Is that... legal?', 'Woooo!'],
   silence: ['Hello? ...Okay then.', "Guess you're not a talker.", '...'],
+  redLight: ['That was a red light!', 'Did you just run that light?', 'Red means stop!'],
+  wrongSide: ["We're on the wrong side of the road!", 'Oncoming traffic! Get over!'],
+  sidewalk: ['This is the pavement!', 'People walk here!'],
+  skid: ['Easy on the corners!', "I'm getting carsick.", 'Smooth it out, please.'],
+  pedestrianHit: ['You HIT someone! Stop the car!', 'Oh no. Oh no no no.'],
+  pedestrianScare: ['Watch out for that person!', 'You nearly hit them!'],
+  prop: ['There goes a lamp post...', 'You are paying for that, right?', 'Was that important?'],
 };
+const REACT_COOLDOWN = 6;         // seconds before the rider repeats the same kind of comment
 
 /** What the rider says as they get out, by overall rating. */
 export function farewell(overall) {
@@ -148,11 +157,13 @@ export class Chat {
     this.options = null;           // replies on offer right now, or null
     this.wait = FIRST_LINE_AFTER;  // seconds until the rider speaks next
     this.replyLeft = 0;
-    this.saidNitro = false;
+    this.clock = 0;
+    this.lastSaid = {};            // kind of comment -> when the rider last made it
   }
 
   update(dt) {
     if (!this.rider) return;
+    this.clock += dt;
     if (this.options) {
       this.replyLeft -= dt;
       this.hud.setReplyTimer(Math.max(0, this.replyLeft / REPLY_SECONDS));
@@ -185,10 +196,12 @@ export class Chat {
     this.hud.setReplies([]);
   }
 
-  /** The rider comments on the driving. kind: bump | crash | nitro */
+  /** The rider comments on the driving. kind: any key of REACTIONS */
   react(kind) {
     if (!this.rider || this.options) return;     // never talk over an open question
-    if (kind === 'nitro') { if (this.saidNitro) return; this.saidNitro = true; }
+    const last = this.lastSaid[kind];
+    if (last !== undefined && (kind === 'nitro' || this.clock - last < REACT_COOLDOWN)) return;   // nitro: once a trip
+    this.lastSaid[kind] = this.clock;
     this.hud.showChat(this.rider, pick(REACTIONS[kind]));
     this.hud.setReplies([]);
     this.wait = Math.max(this.wait, 3);

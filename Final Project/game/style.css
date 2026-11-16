@@ -117,3 +117,5 @@ button#go-online {
 #rating-fare { font-size: 18px; font-weight: 700; }
 .star-off { color: rgba(255, 255, 255, 0.22); }
 .star-half { background: linear-gradient(90deg, var(--taxi) 50%, rgba(255, 255, 255, 0.22) 50%); -webkit-background-clip: text; background-clip: text; color: transparent; }
+#rating-summary { color: var(--dim); font-size: 13px; margin: 0 0 12px; }
+.dash-row .label { width: 42px; }

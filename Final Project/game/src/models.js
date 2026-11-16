@@ -102,13 +102,17 @@ function taxiDecals() {
 }
 
 /**
- * @returns {{group, wheels, steerPivots, tailLights}} group faces +z; wheels and steerPivots are
- * there to spin and steer, tailLights is the material to brighten when braking.
+ * @returns the model's group (facing +z) and the parts that move or change: wheels to spin,
+ * steerPivots to steer, tailLights to brighten when braking, and paint, bumpers and headlights
+ * for showing damage.
  */
 export function buildCar({ color = 0xffc21a, type = 'sedan', taxi = false } = {}) {
   const body = BODIES[type];
   const group = new THREE.Group();
-  const paint = mat(color, { rough: 0.42, metal: 0.3 });
+  // The taxi gets materials of its own, because damage recolours them.
+  const paint = taxi
+    ? new THREE.MeshStandardMaterial({ color, roughness: 0.42, metalness: 0.3, flatShading: true })
+    : mat(color, { rough: 0.42, metal: 0.3 });
 
   group.add(mesh(extrudeProfile(body.lower, WIDTH), paint));
   group.add(mesh(extrudeProfile(body.glass, WIDTH - 0.22), glassMat()));
@@ -118,12 +122,18 @@ export function buildCar({ color = 0xffc21a, type = 'sedan', taxi = false } = {}
   // bumpers and lights
   const dark = mat(0x2a2d33, { rough: 0.6 });
   const frontZ = Math.max(...body.lower.map(p => p[0])), rearZ = Math.min(...body.lower.map(p => p[0]));
-  group.add(mesh(new THREE.BoxGeometry(WIDTH + 0.06, 0.16, 0.14), dark, 0, 0.4, frontZ - 0.02));
-  group.add(mesh(new THREE.BoxGeometry(WIDTH + 0.06, 0.16, 0.14), dark, 0, 0.4, rearZ + 0.02));
-  const headMat = mat(0xfff6d5, { emissive: 0xfff0b0, rough: 0.3 });
+  const frontBumper = mesh(new THREE.BoxGeometry(WIDTH + 0.06, 0.16, 0.14), dark, 0, 0.4, frontZ - 0.02);
+  const rearBumper = mesh(new THREE.BoxGeometry(WIDTH + 0.06, 0.16, 0.14), dark, 0, 0.4, rearZ + 0.02);
+  group.add(frontBumper, rearBumper);
+  const headMat = taxi
+    ? new THREE.MeshStandardMaterial({ color: 0xfff6d5, emissive: 0xfff0b0, emissiveIntensity: 1, roughness: 0.3, flatShading: true })
+    : mat(0xfff6d5, { emissive: 0xfff0b0, rough: 0.3 });
+  const headlights = [];
   const tailLights = new THREE.MeshStandardMaterial({ color: 0x8a1616, emissive: 0xff2a2a, emissiveIntensity: 0.35, flatShading: true });
   for (const side of [-1, 1]) {
-    group.add(mesh(new THREE.BoxGeometry(0.42, 0.14, 0.06), headMat, side * 0.6, 0.7, frontZ - 0.06));
+    const lamp = mesh(new THREE.BoxGeometry(0.42, 0.14, 0.06), taxi ? headMat.clone() : headMat, side * 0.6, 0.7, frontZ - 0.06);
+    headlights.push(lamp);
+    group.add(lamp);
     group.add(mesh(new THREE.BoxGeometry(0.42, 0.13, 0.06), tailLights, side * 0.6, 0.72, rearZ + 0.03));
   }
 
@@ -157,7 +167,7 @@ export function buildCar({ color = 0xffc21a, type = 'sedan', taxi = false } = {}
       group.add(strip);
     }
   }
-  return { group, wheels, steerPivots, tailLights };
+  return { group, wheels, steerPivots, tailLights, paint, frontBumper, rearBumper, headlights, frontZ, rearZ };
 }
 
 const SKIN = [0xf1c9a5, 0xd9a577, 0xa8703f, 0x7a4a2a, 0xf6d7bd];

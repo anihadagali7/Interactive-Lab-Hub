@@ -41,6 +41,27 @@ export class Audio {
     const data = noise.getChannelData(0);
     for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
     this.noise = noise;
+
+    // tyre screech: looping noise through a narrow band, silent until setScreech() raises it
+    const squeal = ctx.createBufferSource(), band = ctx.createBiquadFilter();
+    squeal.buffer = noise; squeal.loop = true;
+    band.type = 'bandpass'; band.frequency.value = 1900; band.Q.value = 6;
+    this.screechGain = ctx.createGain();
+    this.screechGain.gain.value = 0;
+    squeal.connect(band).connect(this.screechGain).connect(this.master);
+    squeal.start();
+  }
+
+  /** @param level 0..1 how hard the tyres are sliding */
+  setScreech(level) {
+    if (this.ctx) this.screechGain.gain.setTargetAtTime(Math.min(1, level) * 0.22, this.ctx.currentTime, 0.05);
+  }
+
+  /** Another driver's horn. @param volume 0..1, quieter when far away */
+  honk(volume) {
+    if (!this.ctx || volume <= 0.02) return;
+    const now = this.ctx.currentTime;
+    for (const freq of [349, 440]) this.tone(freq, now, 0.45, 'square', 0.12 * volume);
   }
 
   toggleMute() {
@@ -58,7 +79,11 @@ export class Audio {
     this.engineGain.gain.setTargetAtTime(0.035 + load * 0.05 + (boosting ? 0.04 : 0), now, 0.1);
   }
 
-  silenceEngine() { if (this.ctx) this.engineGain.gain.setTargetAtTime(0, this.ctx.currentTime, 0.1); }
+  silenceEngine() {
+    if (!this.ctx) return;
+    this.engineGain.gain.setTargetAtTime(0, this.ctx.currentTime, 0.1);
+    this.setScreech(0);
+  }
 
   tone(freq, at, length = 0.16, type = 'triangle', volume = 0.22) {
     const ctx = this.ctx, osc = ctx.createOscillator(), gain = ctx.createGain();

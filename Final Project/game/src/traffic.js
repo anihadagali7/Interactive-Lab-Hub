@@ -1,18 +1,20 @@
 // Other cars. Each one follows lane centrelines around the grid: along a road segment, then
-// through an intersection on a curve, choosing a new direction at random. An intersection
-// lets one car through at a time, and every car brakes for whatever is in front of it,
-// including the player.
+// through an intersection on a curve, choosing a new direction at random. Cars drive on the
+// right in both directions, obey the traffic lights, and brake for whatever is in front of
+// them, including the player and pedestrians.
 //
 // The movement logic takes no rendering imports so it can be tested in Node; pass a
 // `makeMesh` function to give each car something to draw.
 import { N, ROAD, PITCH, LANE_INNER, LANE_OUTER, roadPos, rightOf, exitsFrom } from './layout.js';
+import { signal, axisOf } from './signals.js';
 
 const H = ROAD / 2;                 // half an intersection: segments run from H to PITCH - H
+const STOP = 7;                     // a waiting car's centre sits this far short of the intersection, behind the stop line
 const CRUISE = [8.5, 12.5];         // m/s range that cars pick from
 const TURN_SPEED = 6.5;
 const ACCEL = 3.5, DECEL = 10;
 const GAP = 6.5;                    // metres kept to the car in front when stopped
-const STUCK_SECONDS = 25;
+const STUCK_SECONDS = 60;
 
 const isLeft = (d, nd) => nd[0] === d[1] && nd[1] === -d[0];
 const isStraight = (d, nd) => nd[0] === d[0] && nd[1] === d[1];
@@ -43,10 +45,13 @@ export class Traffic {
    */
   constructor(count, rng, keepClear, makeMesh = null) {
     this.rng = rng;
-    this.locks = new Map();        // "i,j" -> the car allowed in that intersection
+    this.time = 0;
+    // "i,j" -> { cars, axis, left }: who is inside an intersection. Cars going straight or right on
+    // the same road share it; a left turn has it alone, because it cuts across oncoming traffic.
+    this.boxes = new Map();
     this.cars = [];
     for (let n = 0; n < count; n++) {
-      const car = { mesh: makeMesh ? makeMesh() : null, speed: 0, stun: 0, still: 0, cruise: CRUISE[0] + rng() * (CRUISE[1] - CRUISE[0]) };
+      const car = { mesh: makeMesh ? makeMesh() : null, speed: 0, stun: 0, still: 0, honk: 0, cruise: CRUISE[0] + rng() * (CRUISE[1] - CRUISE[0]) };
       this.respawn(car, keepClear, 45);
       this.cars.push(car);
     }
@@ -54,7 +59,7 @@ export class Traffic {
 
   /** Put a car on a random stretch of road, clear of other cars and of `avoid`. */
   respawn(car, avoid, clearance) {
-    this.release(car);
+    this.leave(car.holding, car); this.leave(car.leaving, car);
     for (let tries = 0; tries < 200; tries++) {
       const from = [Math.floor(this.rng() * (N + 1)), Math.floor(this.rng() * (N + 1))];
       const exits = exitsFrom(from[0], from[1]);
@@ -62,7 +67,7 @@ export class Traffic {
       const to = [from[0] + dir[0], from[1] + dir[1]];
       const nextDir = chooseExit(to[0], to[1], dir, this.rng);
       const lane = laneFor(dir, nextDir);
-      const s = H + 6 + this.rng() * (PITCH - 2 * H - 18);
+      const s = H + 6 + this.rng() * (PITCH - 2 * H - 22);
       const [x, z] = lanePoint(from, dir, s, lane);
       if (Math.hypot(x - avoid.x, z - avoid.z) < clearance) continue;
       if (this.cars.some(o => o !== car && Math.hypot(o.x - x, o.z - z) < 16)) continue;
@@ -71,9 +76,21 @@ export class Traffic {
     }
   }
 
-  release(car) {
-    for (const key of [car.holding, car.leaving]) if (key && this.locks.get(key) === car) this.locks.delete(key);
-    car.holding = car.leaving = null;
+  /** Ask to drive into an intersection. */
+  enter(key, car, left) {
+    const box = this.boxes.get(key), axis = axisOf(car.dir);
+    if (!box) { this.boxes.set(key, { cars: new Set([car]), axis, left }); return true; }
+    if (box.cars.has(car)) return true;
+    if (left || box.left || box.axis !== axis) return false;
+    box.cars.add(car);
+    return true;
+  }
+
+  leave(key, car) {
+    const box = key && this.boxes.get(key);
+    if (!box) return;
+    box.cars.delete(car);
+    if (!box.cars.size) this.boxes.delete(key);
   }
 
   /** The player ran into this car: it stops for a moment. */
@@ -89,42 +106,63 @@ export class Traffic {
     return list;
   }
 
-  update(dt, player) {
-    for (const car of this.cars) this.drive(car, dt, player);
+  /**
+   * @param player {x, z, yaw?} the player's car
+   * @param obstacles [{x, z}] anything else to brake for: pedestrians on the road
+   */
+  update(dt, player, obstacles = []) {
+    this.time += dt;
+    for (const car of this.cars) this.drive(car, dt, player, obstacles);
   }
 
-  drive(car, dt, player) {
+  drive(car, dt, player, obstacles) {
     const fx = Math.sin(car.yaw), fz = Math.cos(car.yaw);
     let target = car.turn ? TURN_SPEED : car.cruise;
 
     // --- keep a gap to whatever is ahead in this car's path
     const look = 9 + car.speed * 1.4;
-    const mind = (ox, oz) => {
+    const mind = (ox, oz, gap = GAP) => {
       const dx = ox - car.x, dz = oz - car.z;
       const ahead = dx * fx + dz * fz;
-      if (ahead <= 0.5 || ahead > look || Math.abs(dx * fz - dz * fx) > 2.3) return;
-      target = Math.min(target, Math.max(0, (ahead - GAP) * 1.3));
+      if (ahead <= 0.5 || ahead > look || Math.abs(dx * fz - dz * fx) > 2.3) return false;
+      target = Math.min(target, Math.max(0, (ahead - gap) * 1.3));
+      return true;
     };
     for (const other of this.cars) if (other !== car) mind(other.x, other.z);
-    mind(player.x, player.z);
+    for (const o of obstacles) mind(o.x, o.z, 4.5);
+    // The player in this car's lane: brake, and honk if they are coming the wrong way.
+    car.honk = Math.max(0, car.honk - dt);
+    if (mind(player.x, player.z) && player.yaw !== undefined && Math.cos(player.yaw - car.yaw) < -0.5 && car.honk <= 0) {
+      car.honk = 2.5;
+      this.onHonk?.(car);
+    }
     if (car.stun > 0) { car.stun -= dt; target = 0; }
 
-    // --- the intersection ahead: take its lock if it is free, otherwise wait at the stop line
+    // --- the intersection ahead: go on green if there is room inside, otherwise wait at the stop line
     if (!car.turn) {
       const to = [car.from[0] + car.dir[0], car.from[1] + car.dir[1]];
       const key = `${to[0]},${to[1]}`;
-      const toLine = PITCH - H - 2.5 - car.s;                    // distance to the stop line
-      if (toLine < 14 && car.holding !== key) {
-        // A car queued behind this one on the same road must not hold the lock, or both wait forever.
-        const holder = this.locks.get(key);
-        const behind = holder && !holder.turn && holder.s < car.s &&
-          holder.from[0] === car.from[0] && holder.from[1] === car.from[1] && holder.dir[0] === car.dir[0] && holder.dir[1] === car.dir[1];
-        if (!holder || behind) {
-          if (behind) holder.holding = null;
-          this.locks.set(key, car); car.holding = key;
-        } else target = Math.min(target, Math.max(0, toLine) * 0.9);
+      const toLine = PITCH - H - STOP - car.s;                   // distance to where a waiting car stops
+      if (toLine < 14) {
+        const light = signal(to[0], to[1], axisOf(car.dir), this.time);
+        const mayGo = light === 'green' || (light === 'yellow' && toLine < 7);     // too close to stop for a yellow
+        if (car.holding === key && toLine > 0.5 && !mayGo) { this.leave(key, car); car.holding = null; }   // the light changed first
+        if (car.holding !== key && mayGo) {
+          const left = isLeft(car.dir, car.nextDir);
+          if (!this.enter(key, car, left)) {
+            // A car queued behind this one on the same road must not be the one holding the intersection.
+            const box = this.boxes.get(key);
+            for (const o of [...box.cars]) {
+              if (!o.turn && o.holding === key && o.s < car.s && o.from[0] === car.from[0] && o.from[1] === car.from[1] && o.dir[0] === car.dir[0] && o.dir[1] === car.dir[1]) {
+                this.leave(key, o); o.holding = null;
+              }
+            }
+          }
+          if (this.enter(key, car, left)) car.holding = key;
+        }
+        if (car.holding !== key) target = Math.min(target, Math.max(0, toLine) * 0.9);
+        else if (!isStraight(car.dir, car.nextDir)) target = Math.min(target, TURN_SPEED + Math.max(0, toLine) * 0.5);
       }
-      if (car.holding === key && !isStraight(car.dir, car.nextDir)) target = Math.min(target, TURN_SPEED + Math.max(0, toLine) * 0.5);
     }
 
     car.speed += Math.max(-DECEL * dt, Math.min(ACCEL * dt, target - car.speed));
@@ -146,15 +184,16 @@ export class Traffic {
       }
     } else {
       car.s += step;
+      const to = [car.from[0] + car.dir[0], car.from[1] + car.dir[1]];
+      const key = `${to[0]},${to[1]}`;
+      if (car.holding !== key && car.s > PITCH - H - STOP) car.s = PITCH - H - STOP;     // never roll past the line without permission
       [car.x, car.z] = lanePoint(car.from, car.dir, car.s, car.lane);
       car.yaw = Math.atan2(car.dir[0], car.dir[1]);
       if (car.leaving && car.s > H + 4) {                        // tail is clear of the intersection
-        if (this.locks.get(car.leaving) === car) this.locks.delete(car.leaving);
+        this.leave(car.leaving, car);
         car.leaving = null;
       }
-      const to = [car.from[0] + car.dir[0], car.from[1] + car.dir[1]];
-      if (car.s >= PITCH - H && car.holding === `${to[0]},${to[1]}`) this.beginTurn(car, to);
-      else if (car.s > PITCH - H) car.s = PITCH - H;             // never roll in without the lock
+      if (car.s >= PITCH - H && car.holding === key) this.beginTurn(car, to);
     }
 
     // --- a car that has not moved for a long time, far from the player, starts again somewhere else

@@ -567,25 +567,6 @@ function plantTrees(scene, trees, rng) {
   for (const m of [trunks, crowns]) { m.castShadow = true; m.receiveShadow = true; scene.add(m); }
 }
 
-function streetLamps(scene, circles) {
-  const spots = [];
-  for (let i = 0; i < N; i++) for (let j = 0; j < N; j++) {
-    const x0 = blockMin(i) + 1, x1 = blockMin(i) + BLOCK - 1, z0 = blockMin(j) + 1, z1 = blockMin(j) + BLOCK - 1;
-    const xm = (x0 + x1) / 2 + 9, zm = (z0 + z1) / 2 + 9;        // off-centre, clear of where riders wait
-    spots.push([x0, z0], [x1, z0], [x0, z1], [x1, z1], [xm, z0], [xm, z1], [x0, zm], [x1, zm]);
-  }
-  const poles = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.08, 0.12, 5, 6), mat(0x3d4450), spots.length);
-  const globes = new THREE.InstancedMesh(new THREE.IcosahedronGeometry(0.34, 1), mat(0xfffbe6, { emissive: 0xc9b37a }), spots.length);
-  const o = new THREE.Object3D();
-  spots.forEach(([x, z], k) => {
-    o.position.set(x, SIDEWALK_H + 2.5, z); o.updateMatrix(); poles.setMatrixAt(k, o.matrix);
-    o.position.y = SIDEWALK_H + 5.2; o.updateMatrix(); globes.setMatrixAt(k, o.matrix);
-    circles.push({ x, z, r: 0.16 });
-  });
-  poles.castShadow = true;
-  scene.add(poles, globes);
-}
-
 function sky(scene) {
   const dome = new THREE.Mesh(
     new THREE.SphereGeometry(1900, 24, 12),
@@ -722,7 +703,6 @@ export function buildWorld(scene) {
   mergeStatic(city.root, new Set(city.spinners));
   scene.add(city.root);
   plantTrees(scene, city.trees, city.rng);
-  streetLamps(scene, city.circles);
   const clouds = sky(scene);
 
   const inRect = (r, x, z) => x >= r.minX && x <= r.maxX && z >= r.minZ && z <= r.maxZ;

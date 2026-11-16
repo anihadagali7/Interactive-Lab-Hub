@@ -3,9 +3,12 @@
 //
 //   idle -> request -> toPickup -> boarding -> inRide -> alighting -> rating -> idle
 //            decline/timeout -> idle        cancel (hold X) -> idle
+//
+// Everything that happens on the road is passed to report(). Fines come off the driver's
+// earnings whenever they happen; star penalties only count while a rider is on board.
 import * as THREE from 'three';
 import { PLACES, route, routeLength } from './layout.js';
-import { rateTrip, fareFor, parTime } from './scoring.js';
+import { rateTrip, fareFor, parTime, SAFETY_COST, RULES_COST, FINES } from './scoring.js';
 import { RIDERS, farewell } from './chat.js';
 import { buildPerson, skinTones } from './models.js';
 import { SIDEWALK_H } from './world.js';
@@ -15,11 +18,12 @@ const ARRIVE_RADIUS = 9;          // metres from the kerb stop
 const ARRIVE_SPEED = 1.2;         // m/s: the car has to be all but stopped
 const BOARD_SECONDS = 1.6;
 const CANCEL_HOLD = 1;            // seconds X must be held
-const RATING_SECONDS = 10;
-const MAX_DAMAGE = 4;             // damage that empties the comfort bar
+const RATING_SECONDS = 12;
+const MAX_DAMAGE = 4;             // safety stars lost that empty the comfort bar
 
 const pick = list => list[Math.floor(Math.random() * list.length)];
 const dist = (a, b) => Math.hypot(a.x - b.x, a.z - b.z);
+const plural = (n, word, many = `${word}s`) => `${n} ${n === 1 ? word : many}`;
 
 /** A glowing ring, light beam and bobbing gem that marks where to stop. */
 function buildMarker(color) {
@@ -35,13 +39,35 @@ function buildMarker(color) {
   return { group, gem, ring };
 }
 
+const newTrip = () => ({
+  damage: 0,            // safety stars lost
+  rules: 0,             // rules stars lost
+  counts: { crashes: 0, redLights: 0, pedestriansHit: 0, scares: 0, props: 0, wrongSide: 0, sidewalk: 0, skid: 0 },
+});
+
+/** One line for the rating card: what went wrong on the trip. */
+export function summarize(c) {
+  const parts = [];
+  if (c.pedestriansHit) parts.push(`hit ${plural(c.pedestriansHit, 'pedestrian')}`);
+  if (c.crashes) parts.push(plural(c.crashes, 'crash', 'crashes'));
+  if (c.redLights) parts.push(plural(c.redLights, 'red light'));
+  if (c.scares) parts.push(`scared ${plural(c.scares, 'pedestrian')}`);
+  if (c.props) parts.push(`knocked over ${plural(c.props, 'thing')}`);
+  if (c.wrongSide >= 1) parts.push(`${Math.round(c.wrongSide)} s on the wrong side`);
+  if (c.sidewalk >= 1) parts.push(`${Math.round(c.sidewalk)} s on the pavement`);
+  if (c.skid >= 2) parts.push('a lot of skidding');
+  return parts.length ? parts.join(' · ') : 'A clean drive';
+}
+
 export class Rides {
-  constructor({ scene, car, hud, chat, audio, input }) {
-    Object.assign(this, { scene, car, hud, chat, audio, input });
+  /** @param vehicle {health, repair() -> dollars} the taxi's condition */
+  constructor({ scene, car, hud, chat, audio, input, vehicle }) {
+    Object.assign(this, { scene, car, hud, chat, audio, input, vehicle });
     this.state = 'offline';
-    this.stats = { earned: 0, ratings: [], rides: 0 };
+    this.stats = { earned: 0, ratings: [], rides: 0, fines: 0 };
     this.request = null;
     this.routePoints = null;
+    this.trip = newTrip();
     this.figure = null;            // the rider standing on the pavement
     this.time = 0;
     this.pickupMarker = buildMarker(0x3ddc84);
@@ -121,8 +147,11 @@ export class Rides {
     this.backToIdle(3 + Math.random() * 3);
   }
 
-  /** The driver gave up on an accepted ride. Before pickup it is only a cancellation; with a rider on board it costs a 1-star rating. */
-  cancel() {
+  /**
+   * The ride ends early. Before pickup it is only a cancellation; with a rider on board it
+   * costs a 1-star rating. Used when the driver holds X and when the taxi is wrecked.
+   */
+  cancel(quote = 'You are leaving me HERE?') {
     const r = this.request, onBoard = this.state === 'inRide';
     this.chat.stop();
     this.clearTrip();
@@ -131,13 +160,24 @@ export class Rides {
       this.stats.ratings.push(1);
       this.stats.rides++;
       this.hud.setStats(this.stats);
-      this.hud.showRating({ rider: r.rider, cancelled: true, result: { overall: 1, speed: 1, safety: 1, chat: 1 }, quote: 'You are leaving me HERE?' });
+      this.hud.showRating({
+        rider: r.rider, cancelled: true, quote, summary: summarize(this.trip.counts),
+        result: { overall: 1, speed: 1, safety: 1, rules: 1, chat: 1 },
+      });
       this.state = 'rating';
       this.timer = RATING_SECONDS;
     } else {
       this.hud.toast('Ride cancelled.');
       this.backToIdle(4);
     }
+  }
+
+  /** The taxi's health reached zero: it is towed and repaired, and any ride in progress is lost. */
+  breakdown() {
+    const repair = this.vehicle.repair();
+    this.charge(FINES.tow + repair);
+    this.hud.toast(`Taxi wrecked! Towed and repaired for $${(FINES.tow + repair).toFixed(2)}.`, 5);
+    if (['toPickup', 'boarding', 'inRide'].includes(this.state)) this.cancel('This car is a wreck! I am walking.');
   }
 
   backToIdle(wait) {
@@ -158,6 +198,58 @@ export class Rides {
   closeRating() {
     this.hud.hideRating();
     this.backToIdle(2.5 + Math.random() * 3);
+  }
+
+  // ---------------------------------------------------------------- incidents
+
+  charge(dollars) {
+    this.stats.earned -= dollars;
+    this.stats.fines += dollars;
+    this.hud.setStats(this.stats);
+  }
+
+  fine(dollars, label) {
+    if (!dollars) return;
+    this.charge(dollars);
+    this.hud.toast(`${label}: $${dollars} fine`);
+  }
+
+  /**
+   * Something happened on the road.
+   * @param kind   crash | redLight | wrongSide | sidewalk | skid | pedestrianHit | pedestrianScare | prop
+   * @param amount crash: severity; wrongSide, sidewalk, skid: seconds; prop: {penalty, fine, name}
+   */
+  report(kind, amount = 1) {
+    const riding = this.state === 'inRide', t = this.trip, c = t.counts;
+    switch (kind) {
+      case 'crash':
+        if (riding) { t.damage += amount; c.crashes++; this.chat.react(amount >= 0.8 ? 'crash' : 'bump'); }
+        break;
+      case 'redLight':
+        this.fine(FINES.redLight, 'Ran a red light');
+        if (riding) { t.rules += RULES_COST.redLight; c.redLights++; this.chat.react('redLight'); }
+        break;
+      case 'wrongSide':
+        if (riding) { t.rules += RULES_COST.wrongSideSecond * amount; c.wrongSide += amount; if (c.wrongSide > 1.2) this.chat.react('wrongSide'); }
+        break;
+      case 'sidewalk':
+        if (riding) { t.rules += RULES_COST.sidewalkSecond * amount; c.sidewalk += amount; if (c.sidewalk > 0.8) this.chat.react('sidewalk'); }
+        break;
+      case 'skid':
+        if (riding) { t.damage += SAFETY_COST.skidSecond * amount; c.skid += amount; if (c.skid > 2) this.chat.react('skid'); }
+        break;
+      case 'pedestrianHit':
+        this.fine(FINES.pedestrianHit, 'Hit a pedestrian');
+        if (riding) { t.damage += SAFETY_COST.pedestrianHit; c.pedestriansHit++; this.chat.react('pedestrianHit'); }
+        break;
+      case 'pedestrianScare':
+        if (riding) { t.damage += SAFETY_COST.pedestrianScare; c.scares++; this.chat.react('pedestrianScare'); }
+        break;
+      case 'prop':
+        this.fine(amount.fine, `Knocked over a ${amount.name}`);
+        if (riding) { t.damage += amount.penalty; c.props++; this.chat.react('prop'); }
+        break;
+    }
   }
 
   // ---------------------------------------------------------------- the rider on the pavement
@@ -181,13 +273,6 @@ export class Rides {
   }
 
   // ---------------------------------------------------------------- per frame
-
-  /** A rider-relevant crash. @param severity see impactSeverity() */
-  onImpact(severity) {
-    if (this.state !== 'inRide') return;
-    this.damage += severity;
-    this.chat.react(severity >= 0.8 ? 'crash' : 'bump');
-  }
 
   arrived(place) {
     return dist(this.car, place.stop) < ARRIVE_RADIUS && this.car.speed < ARRIVE_SPEED;
@@ -242,7 +327,7 @@ export class Rides {
           this.showMarker(this.dropoffMarker, r.dropoff.stop);
           this.state = 'inRide';
           this.tripSeconds = 0;
-          this.damage = 0;
+          this.trip = newTrip();
           this.par = parTime(r.tripLength);
           this.chat.start(r.rider);
           this.hud.toast(`${r.rider.name} is on board. Go to ${r.dropoff.name}.`);
@@ -255,7 +340,7 @@ export class Rides {
         this.routePoints = route(car, r.dropoff);
         this.chat.update(dt);
         if (car.boosting) this.chat.react('nitro');
-        this.hud.setTrip({ comfort: Math.max(0, 1 - this.damage / MAX_DAMAGE), seconds: this.tripSeconds, par: this.par });
+        this.hud.setTrip({ comfort: Math.max(0, 1 - (this.trip.damage + this.trip.rules * 0.5) / MAX_DAMAGE), seconds: this.tripSeconds, par: this.par });
         if (this.arrived(r.dropoff)) {
           this.state = 'alighting';
           this.timer = BOARD_SECONDS;
@@ -289,10 +374,11 @@ export class Rides {
   }
 
   finishTrip() {
-    const r = this.request;
-    const result = rateTrip({ seconds: this.tripSeconds, par: this.par, damage: this.damage, chatScores: this.chatScores });
+    const r = this.request, t = this.trip;
+    const result = rateTrip({ seconds: this.tripSeconds, par: this.par, damage: t.damage, rulePenalty: t.rules, chatScores: this.chatScores });
     const { fare, tip } = fareFor(r.tripLength, result.overall);
-    this.stats.earned += fare + tip;
+    const repair = this.vehicle.repair();
+    this.stats.earned += fare + tip - repair;
     this.stats.ratings.push(result.overall);
     this.stats.rides++;
     this.lastResult = result;
@@ -303,7 +389,7 @@ export class Rides {
     this.clearTrip();
     this.figure = keep;                                           // stays on the pavement until the next request
     this.hud.setStats(this.stats);
-    this.hud.showRating({ rider: r.rider, result, fare, tip, quote: farewell(result.overall) });
+    this.hud.showRating({ rider: r.rider, result, fare, tip, repair, quote: farewell(result.overall), summary: summarize(t.counts) });
     this.audio.chime(result.overall >= 3 ? 'rating' : 'bad');
     this.state = 'rating';
     this.timer = RATING_SECONDS;

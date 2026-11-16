@@ -151,9 +151,12 @@ export class Hud {
     ctx.restore();
   }
 
-  setDash(car) {
+  /** @param health the taxi's condition, 0..100 */
+  setDash(car, health) {
     $('speed-value').textContent = Math.round(Math.abs(car.forwardSpeed) * 2.237);
     $('nitro').style.transform = `scaleX(${car.nitro})`;
+    $('health').style.transform = `scaleX(${health / 100})`;
+    $('health').style.background = health > 60 ? '' : health > 30 ? '#ffb224' : '#ff5b5b';
   }
 
   tick(dt) {
@@ -163,7 +166,7 @@ export class Hud {
   // ---------------------------------------------------------------- panels
 
   setStats({ earned, ratings, rides }) {
-    $('earned').textContent = fmtMoney(earned);
+    $('earned').textContent = (earned < 0 ? '−' : '') + fmtMoney(Math.abs(earned));
     $('rides').textContent = rides;
     const avg = ratings.length ? ratings.reduce((a, b) => a + b, 0) / ratings.length : null;
     $('rating').textContent = avg === null ? '★ –' : `★ ${avg.toFixed(2)}`;
@@ -232,15 +235,18 @@ export class Hud {
   setReplyTimer(fraction) { $('chat-timer').style.transform = `scaleX(${fraction})`; }
   hideChat() { $('chat').hidden = true; }
 
-  showRating({ rider, result, fare, tip, quote, cancelled }) {
+  showRating({ rider, result, fare, tip, repair, quote, summary, cancelled }) {
     avatar($('rating-avatar'), rider);
     $('rating-title').textContent = cancelled ? `${rider.name} was not happy` : `${rider.name} rated you ${result.overall.toFixed(1)}`;
     $('rating-stars').innerHTML = stars(result.overall);
     $('rating-quote').textContent = `“${quote}”`;
     $('rating-speed').innerHTML = stars(result.speed);
     $('rating-safety').innerHTML = stars(result.safety);
+    $('rating-rules').innerHTML = stars(result.rules);
     $('rating-chat').innerHTML = stars(result.chat);
-    $('rating-fare').textContent = cancelled ? 'No fare' : `Fare ${fmtMoney(fare)}${tip ? ` + ${fmtMoney(tip)} tip` : ''}`;
+    $('rating-summary').textContent = summary || '';
+    const repairs = repair ? ` − ${fmtMoney(repair)} repairs` : '';
+    $('rating-fare').textContent = cancelled ? 'No fare' : `Fare ${fmtMoney(fare)}${tip ? ` + ${fmtMoney(tip)} tip` : ''}${repairs}`;
     $('rating-card').hidden = false;
   }
   hideRating() { $('rating-card').hidden = true; }

@@ -33,6 +33,9 @@ export class Car {
     this.nitro = 1;            // tank, 0..1
     this.boosting = false;
     this.braking = false;
+    this.slip = 0;             // sideways speed before the tyres bite, m/s: how hard the car is sliding
+    this.power = 1;            // top-speed multiplier: a damaged engine is slower
+    this.grip = 1;             // tyre grip multiplier: a wet road is slippery
   }
 
   get fx() { return Math.sin(this.yaw); }
@@ -61,7 +64,7 @@ export class Car {
     this.nitro = clamp(this.nitro + (wantsBoost ? -NITRO_DRAIN : NITRO_REFILL) * dt, 0, 1);
 
     // --- engine, brakes and drag along the heading
-    const top = this.boosting ? NITRO_SPEED : TOP_SPEED;
+    const top = (this.boosting ? NITRO_SPEED : TOP_SPEED) * this.power;
     this.braking = false;
     if (drive > 0) {
       if (fwd < -0.5) { fwd += BRAKE * drive * dt; this.braking = true; }
@@ -85,7 +88,8 @@ export class Car {
     this.yaw -= fwd / WHEELBASE * Math.tan(this.steer * lock) * dt;
 
     // --- grip: lose sideways velocity, then rebuild the world velocity on the new heading
-    side *= Math.exp(-(handbrake ? HANDBRAKE_GRIP : GRIP) * dt);
+    this.slip = Math.abs(side);
+    side *= Math.exp(-(handbrake ? HANDBRAKE_GRIP : GRIP) * this.grip * dt);
     const fx = this.fx, fz = this.fz;
     this.vx = fx * fwd - fz * side;
     this.vz = fz * fwd + fx * side;
