@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Five Star Taxi</title>
+<link rel="stylesheet" href="style.css">
+<script type="importmap">{ "imports": { "three": "./vendor/three.module.js" } }</script>
+</head>
+<body>
+<canvas id="view"></canvas>
+
+<div id="hud" hidden>
+  <div class="card" id="stats">
+    <div class="stat"><span class="label">Earned</span><span class="value" id="earned">$0.00</span></div>
+    <div class="stat"><span class="label">Rating</span><span class="value" id="rating">★ –</span></div>
+    <div class="stat"><span class="label">Rides</span><span class="value" id="rides">0</span></div>
+  </div>
+
+  <div class="card" id="objective" hidden>
+    <div id="objective-arrow">➤</div>
+    <div>
+      <div id="objective-title"></div>
+      <div id="objective-detail"></div>
+    </div>
+  </div>
+
+  <div class="card" id="request" hidden>
+    <div class="request-head">
+      <div class="avatar" id="request-avatar"></div>
+      <div>
+        <div class="request-name" id="request-name"></div>
+        <div class="request-sub" id="request-sub"></div>
+      </div>
+      <div class="request-fare" id="request-fare"></div>
+    </div>
+    <div class="leg"><span class="dot pickup"></span><span id="request-pickup"></span></div>
+    <div class="leg"><span class="dot dropoff"></span><span id="request-dropoff"></span></div>
+    <div class="timer"><div id="request-timer"></div></div>
+    <div class="keys"><span><kbd>E</kbd> Accept</span><span><kbd>Q</kbd> Decline</span></div>
+  </div>
+
+  <div class="card" id="trip" hidden>
+    <div class="trip-row"><span class="label">Rider comfort</span><div class="bar"><div id="comfort"></div></div></div>
+    <div class="trip-row"><span class="label">Time</span><span id="trip-time">0:00</span><span class="label" id="trip-par"></span></div>
+    <div class="keys"><span>Hold <kbd>X</kbd> to cancel the ride</span></div>
+    <div class="timer" id="cancel-wrap" hidden><div id="cancel-timer"></div></div>
+  </div>
+
+  <div class="card" id="chat" hidden>
+    <div class="chat-line"><div class="avatar small" id="chat-avatar"></div><div id="chat-text"></div></div>
+    <div id="chat-replies"></div>
+    <div class="timer" id="chat-timer-wrap" hidden><div id="chat-timer"></div></div>
+  </div>
+
+  <div id="toast" hidden></div>
+
+  <div id="minimap-wrap">
+    <canvas id="minimap" width="440" height="440"></canvas>
+    <div id="compass">N</div>
+  </div>
+
+  <div class="card" id="dash">
+    <div id="speed"><span id="speed-value">0</span><span class="unit">mph</span></div>
+    <div class="dash-row"><span class="label">Nitro</span><div class="bar nitro"><div id="nitro"></div></div></div>
+  </div>
+
+  <div id="hints"><kbd>C</kbd> Controls <kbd>M</kbd> Map</div>
+</div>
+
+<div class="overlay" id="bigmap" hidden>
+  <div class="panel">
+    <canvas id="bigmap-canvas" width="1100" height="1100"></canvas>
+    <div class="keys"><span><kbd>M</kbd> Close map</span></div>
+  </div>
+</div>
+
+<div class="overlay" id="help" hidden>
+  <div class="panel">
+    <h2>Controls</h2>
+    <div class="controls">
+      <div><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> or arrows</div><div>Drive and steer</div>
+      <div><kbd>Space</kbd></div><div>Handbrake</div>
+      <div><kbd>Shift</kbd></div><div>Nitro boost</div>
+      <div><kbd>E</kbd> or <kbd>Enter</kbd></div><div>Accept a ride request</div>
+      <div><kbd>Q</kbd></div><div>Decline a ride request</div>
+      <div>Hold <kbd>X</kbd></div><div>Cancel the ride you accepted</div>
+      <div><kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd></div><div>Reply to your rider</div>
+      <div><kbd>M</kbd></div><div>City map</div>
+      <div><kbd>V</kbd></div><div>Change camera</div>
+      <div><kbd>H</kbd></div><div>Horn</div>
+      <div><kbd>R</kbd></div><div>Put the car back on the road</div>
+      <div><kbd>P</kbd></div><div>Pause</div>
+      <div><kbd>0</kbd></div><div>Sound on or off</div>
+    </div>
+    <div class="keys"><span><kbd>C</kbd> Close</span></div>
+  </div>
+</div>
+
+<div class="overlay" id="rating-card" hidden>
+  <div class="panel narrow">
+    <div class="avatar big" id="rating-avatar"></div>
+    <h2 id="rating-title"></h2>
+    <div id="rating-stars"></div>
+    <div id="rating-quote"></div>
+    <div class="breakdown">
+      <span>Speed</span><span class="mini-stars" id="rating-speed"></span>
+      <span>Safety</span><span class="mini-stars" id="rating-safety"></span>
+      <span>Conversation</span><span class="mini-stars" id="rating-chat"></span>
+    </div>
+    <div id="rating-fare"></div>
+    <div class="keys"><span><kbd>E</kbd> Continue</span></div>
+  </div>
+</div>
+
+<div class="overlay solid" id="start">
+  <div class="panel narrow">
+    <div class="logo">FIVE STAR <span>TAXI</span></div>
+    <p>Pick riders up, keep them talking, and get them there fast and in one piece. Every rider rates you out of five.</p>
+    <div class="controls compact">
+      <div><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd></div><div>Drive</div>
+      <div><kbd>E</kbd> / <kbd>Q</kbd></div><div>Accept or decline a ride</div>
+      <div>Hold <kbd>X</kbd></div><div>Cancel a ride</div>
+      <div><kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd></div><div>Reply to your rider</div>
+      <div><kbd>Shift</kbd></div><div>Nitro</div>
+      <div><kbd>C</kbd></div><div>All controls</div>
+    </div>
+    <button id="go-online">Go online</button>
+    <div class="keys"><span>or press <kbd>Enter</kbd></span></div>
+  </div>
+</div>
+
+<div class="overlay" id="paused" hidden><div class="panel narrow"><h2>Paused</h2><div class="keys"><span><kbd>P</kbd> Resume</span></div></div></div>
+
+<script type="module" src="src/main.js"></script>
+</body>
+</html>
