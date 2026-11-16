@@ -166,7 +166,11 @@ function taxiDecals() {
  * @returns the model's group (facing +z) and the parts that move or change: wheels to spin,
  * steerPivots to steer, tailLights to brighten when braking, and paint, bumpers, headlights and
  * scars (taxi only: [{mesh, from}], shown once that share of health is gone) for showing damage.
+ * The taxi also gets doors: {'-1': pivot, '1': pivot}, its rear doors (-1 is the car's right),
+ * hinged at the front edge. Turn a pivot by -side * angle to swing it open.
  */
+export const CAR_WIDTH = WIDTH;
+
 export function buildCar({ color = 0xffc21a, type = 'sedan', taxi = false } = {}) {
   const body = BODIES[type];
   const group = new THREE.Group();
@@ -192,7 +196,7 @@ export function buildCar({ color = 0xffc21a, type = 'sedan', taxi = false } = {}
     // door seams and handles
     body.seams.forEach((z, k) => {
       group.add(mesh(new THREE.BoxGeometry(0.012, sill - 0.42, 0.025), dark, side * (WIDTH / 2 + 0.002), (sill + 0.42) / 2, z));
-      if (k) group.add(mesh(new THREE.BoxGeometry(0.03, 0.035, 0.16), chrome, side * (WIDTH / 2 + 0.008), sill - 0.1, z + 0.22));
+      if (k && !(taxi && k === 2)) group.add(mesh(new THREE.BoxGeometry(0.03, 0.035, 0.16), chrome, side * (WIDTH / 2 + 0.008), sill - 0.1, z + 0.22));
     });
     // wing mirrors
     group.add(mesh(new THREE.BoxGeometry(0.2, 0.12, 0.09), paint, side * (WIDTH / 2 + 0.07), sill + 0.06, body.mirrors));
@@ -244,17 +248,40 @@ export function buildCar({ color = 0xffc21a, type = 'sedan', taxi = false } = {}
     }
   });
 
-  const scars = [];
+  const scars = [], doors = {};
   if (taxi) {
     const { sign, checker, scratches, dent, crack } = taxiDecals();
     const signMat = new THREE.MeshStandardMaterial({ map: sign, emissive: 0xffe9a0, emissiveMap: sign, emissiveIntensity: 0.55 });
     group.add(mesh(new THREE.BoxGeometry(0.62, 0.2, 0.24), signMat, 0, body.roof.y + 0.14, body.roof.z));
-    const stripe = new THREE.MeshStandardMaterial({ map: checker, roughness: 0.5 });
+    // checker stripe: one piece on the front door and wing, one on each rear door
+    const stripe = length => {
+      const map = checker.clone();
+      map.repeat.x = length / 2.4;
+      map.needsUpdate = true;
+      return new THREE.MeshStandardMaterial({ map, roughness: 0.5 });
+    };
+    const [, hinge, latch] = body.seams, doorLen = hinge - latch - 0.02;
+    const frontStripe = stripe(1.0 - hinge), doorStripe = stripe(doorLen), cabin = new THREE.MeshStandardMaterial({ color: 0x0b0c0f, roughness: 1 });
+    const lean = Math.atan((cabinW - topW) / 2 / (top - sill));
     for (const side of [-1, 1]) {
-      const strip = mesh(new THREE.PlaneGeometry(2.4, 0.16), stripe, side * (WIDTH / 2 + 0.006), 0.74, -0.2);
-      strip.rotation.y = side * Math.PI / 2;
-      strip.castShadow = false;
-      group.add(strip);
+      const flat = (w, h, material, x, y, z, parent) => {
+        const m = mesh(new THREE.PlaneGeometry(w, h), material, x, y, z);
+        m.rotation.y = side * Math.PI / 2; m.castShadow = false;
+        parent.add(m);
+      };
+      flat(1.0 - hinge, 0.16, frontStripe, side * (WIDTH / 2 + 0.006), 0.74, (1.0 + hinge) / 2, group);
+      flat(doorLen - 0.06, sill - 0.5, cabin, side * (WIDTH / 2 + 0.003), (sill + 0.44) / 2, (hinge + latch) / 2, group);   // the dark inside, seen when the door is open
+
+      const door = new THREE.Group();
+      door.position.set(side * WIDTH / 2, 0, hinge - 0.01);
+      door.add(mesh(new THREE.BoxGeometry(0.02, sill - 0.43, doorLen), paint, side * 0.012, (sill + 0.43) / 2, -doorLen / 2));
+      const pane = mesh(new THREE.BoxGeometry(0.02, (top - sill) / Math.cos(lean) - 0.06, doorLen * 0.7), glassMat(), side * ((cabinW + topW) / 4 - WIDTH / 2 + 0.014), (sill + top) / 2, -doorLen * 0.37);
+      pane.rotation.z = side * lean;
+      door.add(pane);
+      door.add(mesh(new THREE.BoxGeometry(0.03, 0.035, 0.16), chrome, side * 0.03, sill - 0.1, -doorLen + 0.22));
+      flat(doorLen, 0.16, doorStripe, side * 0.024, 0.74, -doorLen / 2, door);
+      group.add(door);
+      doors[side] = door;
     }
     // damage decals, laid just proud of the panels and switched on by vehicle.js as health drops
     const scar = (from, map, w, h, x, y, z, rx, ry) => {
@@ -267,25 +294,36 @@ export function buildCar({ color = 0xffc21a, type = 'sedan', taxi = false } = {}
     scar(0.1, scratches, 1.7, 0.36, side, 0.56, 1.1, 0, quarter);              // right front wing
     scar(0.25, dent, 1.2, 1.0, 0, 0.9, 1.52, -quarter + 0.078, 0);             // bonnet
     scar(0.4, crack, 1.36, 0.74, 0, 1.18, 0.685, -0.915, 0);                    // windscreen
-    scar(0.5, scratches, 1.9, 0.4, -side, 0.58, -0.9, 0, -quarter);            // left rear door
+    scar(0.5, scratches, 0.95, 0.36, -side, 0.58, 0.2, 0, -quarter);           // left front door
     scar(0.65, dent, 0.9, 0.5, -side, 0.6, 1.3, 0, -quarter);                  // left front wing
-    scar(0.75, scratches, 1.6, 0.34, side, 0.6, -1.1, 0, quarter);             // right rear door
+    scar(0.75, scratches, 0.8, 0.3, side, 0.6, -1.75, 0, quarter);             // right rear wing
   }
-  return { group, wheels, steerPivots, tailLights, paint, frontBumper, rearBumper, headlights, scars, frontZ, rearZ };
+  return { group, wheels, steerPivots, tailLights, paint, frontBumper, rearBumper, headlights, scars, doors, frontZ, rearZ };
 }
 
 const SKIN = [0xf1c9a5, 0xd9a577, 0xa8703f, 0x7a4a2a, 0xf6d7bd];
 
-/** A simple standing figure, about 1.75 m tall, facing +z. `arm` is the one to wave. */
-export function buildPerson({ shirt = 0x3e63dd, pants = 0x2b3140, skin = SKIN[0] } = {}) {
+/**
+ * A simple figure, about 1.75 m tall, facing +z. `arm` is the one to wave; `legs` pivot at the hip
+ * (turn them about x to stride, or both to -PI/2 to sit).
+ */
+export function buildPerson({ shirt = 0x3e63dd, pants = 0x2b3140, skin = SKIN[0], hair = 0x2a211c } = {}) {
   const group = new THREE.Group();
-  group.add(mesh(new THREE.BoxGeometry(0.34, 0.8, 0.22), mat(pants), 0, 0.4, 0));
+  const legGeo = new THREE.BoxGeometry(0.15, 0.8, 0.2).translate(0, -0.4, 0);    // pivot at the hip
+  const shoeGeo = new THREE.BoxGeometry(0.15, 0.09, 0.28).translate(0, -0.76, 0.05);
+  const legs = [-1, 1].map(side => {
+    const leg = mesh(legGeo, mat(pants), side * 0.095, 0.8, 0);
+    leg.add(mesh(shoeGeo, mat(0x1c1c1f)));
+    return leg;
+  });
+  group.add(...legs);
   group.add(mesh(new THREE.CylinderGeometry(0.2, 0.24, 0.62, 8), mat(shirt), 0, 1.1, 0));
   group.add(mesh(new THREE.IcosahedronGeometry(0.17, 1), mat(skin), 0, 1.58, 0));
+  group.add(mesh(new THREE.SphereGeometry(0.18, 8, 5, 0, Math.PI * 2, 0, Math.PI * 0.52), mat(hair), 0, 1.6, -0.02));
   const armGeo = new THREE.BoxGeometry(0.1, 0.56, 0.1).translate(0, -0.24, 0);   // pivot at the shoulder
   const left = mesh(armGeo, mat(shirt), -0.27, 1.36, 0);
   const arm = mesh(armGeo, mat(shirt), 0.27, 1.36, 0);
   group.add(left, arm);
-  return { group, arm };
+  return { group, arm, left, legs };
 }
 export const skinTones = SKIN;

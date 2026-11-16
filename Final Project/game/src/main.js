@@ -86,7 +86,7 @@ const crowdView = new PedestrianView(scene, crowd.people);
 const hud = new Hud(world);
 const audio = new Audio();
 const chat = new Chat(hud, input, audio);
-const rides = new Rides({ scene, car, hud, chat, audio, input, vehicle, patience: () => atmosphere.patience });
+const rides = new Rides({ scene, car, hud, chat, audio, input, vehicle, taxi: { root: taxiRoot, doors: taxi.doors }, patience: () => atmosphere.patience });
 traffic.onHonk = other => audio.honk(1 - Math.hypot(other.x - car.x, other.z - car.z) / 60);
 
 const game = {

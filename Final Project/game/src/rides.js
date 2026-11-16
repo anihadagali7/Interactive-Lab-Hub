@@ -10,19 +10,25 @@ import * as THREE from 'three';
 import { PLACES, route, routeLength } from './layout.js';
 import { rateTrip, fareFor, parTime, SAFETY_COST, RULES_COST, FINES } from './scoring.js';
 import { RIDERS, farewell } from './chat.js';
-import { buildPerson, skinTones } from './models.js';
+import { buildPerson, skinTones, CAR_WIDTH } from './models.js';
 import { SIDEWALK_H } from './world.js';
 
 const REQUEST_SECONDS = 14;
 const ARRIVE_RADIUS = 9;          // metres from the kerb stop
 const ARRIVE_SPEED = 1.2;         // m/s: the car has to be all but stopped
-const BOARD_SECONDS = 1.6;
+const BOARD_SECONDS = 3.1;         // getting in, or out: walk, door, sit, door
+const DOOR_ANGLE = 1.15;           // radians a rear door swings open
+// Where the rider stands to get in, and where they sit, as [across from the centre line, height, along] in the taxi's own frame
+const STAND = [CAR_WIDTH / 2 + 0.6, 0, -1.2], SEAT = [0.42, -0.4, -0.8];
+const HAIR = [0x2a211c, 0x4a2f1b, 0x111111, 0x8a5a2b, 0xb9b9b9];
 const CANCEL_HOLD = 1;            // seconds X must be held
 const RATING_SECONDS = 12;
 const MAX_DAMAGE = 4;             // safety stars lost that empty the comfort bar
 
 const pick = list => list[Math.floor(Math.random() * list.length)];
 const dist = (a, b) => Math.hypot(a.x - b.x, a.z - b.z);
+/** 0 before a, 1 after b, eased in between. */
+const span = (e, a, b) => { const t = Math.max(0, Math.min(1, (e - a) / (b - a))); return t * t * (3 - 2 * t); };
 const plural = (n, word, many = `${word}s`) => `${n} ${n === 1 ? word : many}`;
 
 /** A glowing ring, light beam and bobbing gem that marks where to stop. */
@@ -63,10 +69,11 @@ export function summarize(c) {
 export class Rides {
   /**
    * @param vehicle  {health, repair() -> dollars} the taxi's condition
+   * @param taxi     {root, doors} the taxi's Object3D and its rear door pivots (see buildCar)
    * @param patience () => multiplier on the expected trip time (riders allow longer in rain and at night)
    */
-  constructor({ scene, car, hud, chat, audio, input, vehicle, patience = () => 1 }) {
-    Object.assign(this, { scene, car, hud, chat, audio, input, vehicle, patience });
+  constructor({ scene, car, hud, chat, audio, input, vehicle, taxi, patience = () => 1 }) {
+    Object.assign(this, { scene, car, hud, chat, audio, input, vehicle, taxi, patience });
     this.state = 'offline';
     this.stats = { earned: 0, ratings: [], rides: 0, fines: 0 };
     this.request = null;
@@ -264,15 +271,73 @@ export class Rides {
   placeFigure(place) {
     this.removeFigure();
     const rider = this.request.rider;
-    const person = buildPerson({ shirt: rider.shirt, skin: pick(skinTones) });
+    const person = buildPerson({ shirt: rider.shirt, skin: (rider.skin ||= pick(skinTones)), hair: (rider.hair ||= pick(HAIR)) });
     person.group.position.set(place.wait.x, SIDEWALK_H, place.wait.z);
     person.group.rotation.y = Math.atan2(place.normal[0], place.normal[1]);     // face the road
     this.scene.add(person.group);
     this.figure = person;
   }
   removeFigure() {
-    if (this.figure) this.scene.remove(this.figure.group);
+    this.figure?.group.removeFromParent();
     this.figure = null;
+  }
+
+  // ---------------------------------------------------------------- getting in and out
+
+  /** Pick the rear door nearer the kerb and note where the rider starts or ends up. */
+  useDoor(place) {
+    const car = this.car, toRight = -(place.wait.x - car.x) * Math.cos(car.yaw) + (place.wait.z - car.z) * Math.sin(car.yaw);
+    this.side = toRight > 0 ? -1 : 1;              // the model's -x is the car's right
+    this.slammed = false;
+  }
+  point([across, y, along]) { return new THREE.Vector3(this.side * across, y, along); }
+  setDoor(open) { this.taxi.doors[this.side].rotation.y = -this.side * DOOR_ANGLE * open; }
+  slam(e, at) { if (e >= at && !this.slammed) { this.slammed = true; this.audio.thud(0.22); } }
+
+  /** Walk the figure between two world points, striding, facing the way it goes. */
+  walk(from, to, t) {
+    const g = this.figure.group, stride = Math.sin(this.time * 11) * 0.55 * (t > 0 && t < 1);
+    g.position.lerpVectors(from, to, t);
+    if (from.distanceTo(to) > 0.05) g.rotation.y = Math.atan2(to.x - from.x, to.z - from.z);
+    this.figure.legs.forEach((leg, k) => { leg.rotation.x = k ? stride : -stride; });
+    this.figure.left.rotation.x = stride * 0.7; this.figure.arm.rotation.x = -stride * 0.7;
+  }
+  /** Between standing by the open door (t = 0) and sitting on the back seat (t = 1), in the taxi's own frame. */
+  sit(t) {
+    const g = this.figure.group, fold = span(t, 0.35, 1);
+    g.position.lerpVectors(this.point(STAND), this.point(SEAT), t);
+    g.rotation.y = -this.side * Math.PI / 2 * (1 - span(t, 0.2, 0.9));       // faces the car, then turns to face forward
+    for (const leg of this.figure.legs) leg.rotation.x = -Math.PI / 2 * fold;
+    this.figure.left.rotation.x = this.figure.arm.rotation.x = -0.9 * Math.sin(t * Math.PI);    // reaching in
+  }
+
+  /** e seconds into getting in: walk to the door, it opens, sit down, it closes. */
+  board(e) {
+    const wait = this.request.pickup.wait, root = this.taxi.root;
+    root.updateMatrixWorld();
+    if (e < 1.45) {
+      this.walk(new THREE.Vector3(wait.x, SIDEWALK_H, wait.z), root.localToWorld(this.point(STAND)), span(e, 0, 1.3));
+      this.setDoor(span(e, 0.95, 1.45));
+      return;
+    }
+    if (this.figure.group.parent !== root) { root.add(this.figure.group); this.setDoor(1); }
+    this.sit(span(e, 1.45, 2.4));
+    this.setDoor(1 - span(e, 2.5, 2.9));
+    this.slam(e, 2.85);
+  }
+  /** e seconds into getting out: the same in reverse. */
+  alight(e) {
+    const wait = this.request.dropoff.wait, root = this.taxi.root;
+    root.updateMatrixWorld();
+    if (e < 1.35) {
+      this.setDoor(span(e, 0, 0.45));
+      this.sit(1 - span(e, 0.45, 1.35));
+      return;
+    }
+    if (this.figure.group.parent === root) { this.scene.add(this.figure.group); this.kerb = root.localToWorld(this.point(STAND)); }
+    this.walk(this.kerb, new THREE.Vector3(wait.x, SIDEWALK_H, wait.z), span(e, 1.35, 2.7));
+    this.setDoor(1 - span(e, 1.6, 2.05));
+    this.slam(e, 2.0);
   }
   showMarker(marker, at) {
     marker.group.position.set(at.x, 0, at.z);
@@ -314,6 +379,7 @@ export class Rides {
           this.state = 'boarding';
           this.timer = BOARD_SECONDS;
           this.figure.arm.rotation.z = 0;
+          this.useDoor(r.pickup);
           this.audio.chime('pickup');
         }
         break;
@@ -325,9 +391,7 @@ export class Rides {
           break;
         }
         this.timer -= dt;
-        const t = 1 - Math.max(0, this.timer / BOARD_SECONDS);
-        this.figure.group.position.set(
-          r.pickup.wait.x + (car.x - r.pickup.wait.x) * t, SIDEWALK_H * (1 - t), r.pickup.wait.z + (car.z - r.pickup.wait.z) * t);
+        this.board(BOARD_SECONDS - this.timer);
         if (this.timer <= 0) {
           this.removeFigure();
           this.pickupMarker.group.visible = false;
@@ -353,7 +417,9 @@ export class Rides {
           this.timer = BOARD_SECONDS;
           this.chatScores = this.chat.stop();
           this.placeFigure(r.dropoff);
-          this.figure.group.position.set(car.x, 0, car.z);
+          this.useDoor(r.dropoff);
+          this.taxi.root.add(this.figure.group);
+          this.sit(1);
           this.dropoffMarker.group.visible = false;
           this.routePoints = null;
         }
@@ -361,8 +427,7 @@ export class Rides {
 
       case 'alighting': {
         this.timer -= dt;
-        const t = 1 - Math.max(0, this.timer / BOARD_SECONDS), w = r.dropoff.wait, from = this.figure.group.position;
-        if (t < 1) from.set(from.x + (w.x - from.x) * Math.min(1, dt * 4), SIDEWALK_H * t, from.z + (w.z - from.z) * Math.min(1, dt * 4));
+        this.alight(BOARD_SECONDS - this.timer);
         if (this.timer <= 0) this.finishTrip();
         break;
       }
@@ -371,6 +436,9 @@ export class Rides {
         if ((this.timer -= dt) <= 0) this.closeRating();
         break;
     }
+
+    // a ride that ends part-way through someone getting in or out leaves no door hanging open
+    if (this.state !== 'boarding' && this.state !== 'alighting') for (const door of Object.values(this.taxi.doors)) door.rotation.y = 0;
 
     // hold X to cancel an accepted ride
     if (['toPickup', 'boarding', 'inRide'].includes(this.state)) {
@@ -390,6 +458,7 @@ export class Rides {
     this.stats.rides++;
     this.lastResult = result;
     this.figure.group.position.set(r.dropoff.wait.x, SIDEWALK_H, r.dropoff.wait.z);
+    this.figure.group.rotation.y = Math.atan2(r.dropoff.normal[0], r.dropoff.normal[1]);     // turns back to the road
     this.figure.arm.rotation.z = 2.6;                             // a goodbye wave
     const keep = this.figure;
     this.figure = null;

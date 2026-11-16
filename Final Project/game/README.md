@@ -49,7 +49,8 @@ node --test
 
 1. A request card appears with the rider, pickup, drop-off and fare. Accept or decline within 14 seconds.
 2. Follow the green route on the minimap to the pickup and stop in the glowing ring.
-3. The rider gets in and starts talking. Pick a reply with 1, 2 or 3 before the timer runs out.
+3. The rider walks to the rear door on the kerb side, opens it, sits down and shuts it (about three
+   seconds; getting out is the same in reverse). Then they start talking. Pick a reply with 1, 2 or 3 before the timer runs out.
 4. Follow the pink route to the drop-off and stop in the ring.
 5. The rider rates the trip and you are paid.
 
