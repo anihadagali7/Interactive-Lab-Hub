@@ -18,6 +18,7 @@ import { Particles, SkidMarks, Debris } from './effects.js';
 import { Props, PROP_TYPES, placeStreetFurniture } from './props.js';
 import { decorateRoads } from './roads.js';
 import { Vehicle } from './vehicle.js';
+import { Atmosphere } from './weather.js';
 
 const canvas = document.getElementById('view');
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
@@ -31,9 +32,9 @@ const scene = new THREE.Scene();
 scene.fog = new THREE.Fog(0xcfe6f7, 260, 1700);
 const camera = new THREE.PerspectiveCamera(62, 1, 0.5, 4000);
 
-scene.add(new THREE.HemisphereLight(0xdcefff, 0xb0a48c, 1.9));
+const ambient = new THREE.HemisphereLight(0xdcefff, 0xb0a48c, 1.9);
+scene.add(ambient);
 const sun = new THREE.DirectionalLight(0xfff1d6, 2.3);
-const SUN_OFFSET = new THREE.Vector3(90, 150, 60);
 sun.castShadow = true;
 sun.shadow.mapSize.set(2048, 2048);
 Object.assign(sun.shadow.camera, { left: -130, right: 130, top: 130, bottom: -130, near: 10, far: 420 });
@@ -60,6 +61,12 @@ const taxiRoot = new THREE.Group();        // position and heading; the model in
 taxiRoot.add(taxi.group);
 scene.add(taxiRoot);
 const vehicle = new Vehicle(taxi, particles, debris);
+// headlight beam: off by day, switched on by the weather at night and in rain
+const headlights = new THREE.SpotLight(0xfff0c8, 0, 70, 0.55, 0.7, 1.4);
+headlights.position.set(0, 0.9, 1.9);
+headlights.target.position.set(0, -0.6, 16);
+taxiRoot.add(headlights, headlights.target);
+const atmosphere = new Atmosphere({ scene, world, sun, ambient, lamps: props.list.filter(p => p.type === 'lamp'), headlights });
 const rules = new RoadRules();
 // right-hand lane of a central north-south road, facing south
 car.place(roadPos(3) - LANE_OUTER, (roadPos(2) + roadPos(3)) / 2, 0);
@@ -79,7 +86,7 @@ const crowdView = new PedestrianView(scene, crowd.people);
 const hud = new Hud(world);
 const audio = new Audio();
 const chat = new Chat(hud, input, audio);
-const rides = new Rides({ scene, car, hud, chat, audio, input, vehicle });
+const rides = new Rides({ scene, car, hud, chat, audio, input, vehicle, patience: () => atmosphere.patience });
 traffic.onHonk = other => audio.honk(1 - Math.hypot(other.x - car.x, other.z - car.z) / 60);
 
 const game = {
@@ -163,6 +170,7 @@ const STEP = 1 / 120;
 
 function stepPhysics(dt, circles) {
   car.power = vehicle.power;
+  car.grip = atmosphere.grip;
   car.update(dt, {
     steer: input.steer,
     drive: input.drive,
@@ -229,9 +237,12 @@ function tick(dt) {
     hud.setObjective(rides.objective, car);
     hud.drawMaps({ car, route: rides.routePoints, pickup: rides.pickup, dropoff: rides.dropoff, traffic: traffic.cars });
     hud.tick(dt);
+    hud.setClock(`${atmosphere.clock} ${atmosphere.icon}`);
+    audio.setRain(atmosphere.rain);
     audio.setEngine(Math.min(1.4, car.speed / TOP_SPEED), Math.max(0, input.drive), car.boosting);
   }
   world.update(dt);
+  atmosphere.update(dt, camera);
   particles.update(dt);
   debris.update(dt);
   crowdView.update(crowd.people, (x, z) => world.surfaceAt(x, z).height);
@@ -252,7 +263,7 @@ function tick(dt) {
   for (const pivot of taxi.steerPivots) pivot.rotation.y = -car.steer * 0.42;
   taxi.tailLights.emissiveIntensity = car.braking ? 2.4 : 0.35;
 
-  sun.position.set(car.x, 0, car.z).add(SUN_OFFSET);
+  sun.position.set(car.x, 0, car.z).add(atmosphere.sunOffset);
   sun.target.position.set(car.x, 0, car.z);
   updateCamera(dt);
 }
@@ -295,6 +306,8 @@ input.onPress('map', () => { if (game.state === 'playing') hud.toggle('bigmap');
 input.onPress('help', () => { if (game.state !== 'menu') hud.toggle('help'); });
 input.on('horn', down => audio.horn(down && game.state === 'playing'));
 input.onPress('mute', () => hud.toast(audio.toggleMute() ? 'Sound off' : 'Sound on', 1.5));
+input.onPress('time', () => { if (game.state === 'playing') { atmosphere.skip(3); hud.toast('Three hours later...', 1.5); } });
+input.onPress('weather', () => { if (game.state === 'playing') hud.toast(atmosphere.toggleRain() ? 'Rain is coming in.' : 'The rain is clearing.', 2); });
 
 function goOnline() {
   if (game.state !== 'menu') return;
@@ -309,6 +322,6 @@ document.getElementById('go-online').addEventListener('click', goOnline);
 input.onPress('accept', goOnline);
 
 // Handles for the browser console and for automated checks.
-window.game = { game, car, world, input, scene, camera, renderer, tick, goOnline, rides, traffic, crowd, props, vehicle, particles, hud, chat, audio };
+window.game = { game, car, world, input, scene, camera, renderer, tick, goOnline, rides, traffic, crowd, props, vehicle, particles, atmosphere, hud, chat, audio };
 
 requestAnimationFrame(frame);

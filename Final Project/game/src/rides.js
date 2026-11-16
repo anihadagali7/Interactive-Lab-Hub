@@ -60,9 +60,12 @@ export function summarize(c) {
 }
 
 export class Rides {
-  /** @param vehicle {health, repair() -> dollars} the taxi's condition */
-  constructor({ scene, car, hud, chat, audio, input, vehicle }) {
-    Object.assign(this, { scene, car, hud, chat, audio, input, vehicle });
+  /**
+   * @param vehicle  {health, repair() -> dollars} the taxi's condition
+   * @param patience () => multiplier on the expected trip time (riders allow longer in rain and at night)
+   */
+  constructor({ scene, car, hud, chat, audio, input, vehicle, patience = () => 1 }) {
+    Object.assign(this, { scene, car, hud, chat, audio, input, vehicle, patience });
     this.state = 'offline';
     this.stats = { earned: 0, ratings: [], rides: 0, fines: 0 };
     this.request = null;
@@ -328,7 +331,7 @@ export class Rides {
           this.state = 'inRide';
           this.tripSeconds = 0;
           this.trip = newTrip();
-          this.par = parTime(r.tripLength);
+          this.par = parTime(r.tripLength) * this.patience();
           this.chat.start(r.rider);
           this.hud.toast(`${r.rider.name} is on board. Go to ${r.dropoff.name}.`);
         }

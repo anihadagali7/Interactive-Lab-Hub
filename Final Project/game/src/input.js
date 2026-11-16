@@ -36,7 +36,7 @@ export const KEYS = {
   KeyE: 'accept', Enter: 'accept', KeyQ: 'decline', KeyX: 'cancel',
   Digit1: 'reply1', Digit2: 'reply2', Digit3: 'reply3',
   KeyM: 'map', KeyV: 'camera', KeyH: 'horn', KeyC: 'help', KeyR: 'reset', KeyP: 'pause',
-  Digit0: 'mute',
+  Digit0: 'mute', KeyT: 'time', KeyY: 'weather',
 };
 
 export function attachKeyboard(target = window) {

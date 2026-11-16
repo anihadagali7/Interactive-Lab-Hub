@@ -159,6 +159,8 @@ export class Hud {
     $('health').style.background = health > 60 ? '' : health > 30 ? '#ffb224' : '#ff5b5b';
   }
 
+  setClock(text) { if ($('clock').textContent !== text) $('clock').textContent = text; }
+
   tick(dt) {
     if (this.toastLeft > 0 && (this.toastLeft -= dt) <= 0) $('toast').hidden = true;
   }

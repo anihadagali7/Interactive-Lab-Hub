@@ -52,6 +52,21 @@ export class Audio {
     squeal.start();
   }
 
+  /** @param level 0..1 how hard it is raining */
+  setRain(level) {
+    if (!this.ctx) return;
+    if (!this.rainGain) {
+      const hiss = this.ctx.createBufferSource(), soft = this.ctx.createBiquadFilter();
+      hiss.buffer = this.noise; hiss.loop = true;
+      soft.type = 'lowpass'; soft.frequency.value = 1400;
+      this.rainGain = this.ctx.createGain();
+      this.rainGain.gain.value = 0;
+      hiss.connect(soft).connect(this.rainGain).connect(this.master);
+      hiss.start();
+    }
+    this.rainGain.gain.setTargetAtTime(level * 0.16, this.ctx.currentTime, 0.3);
+  }
+
   /** @param level 0..1 how hard the tyres are sliding */
   setScreech(level) {
     if (this.ctx) this.screechGain.gain.setTargetAtTime(Math.min(1, level) * 0.22, this.ctx.currentTime, 0.05);

@@ -36,13 +36,39 @@ function windows(style) {
   return windowTextures[style];
 }
 
+// Night-time companion to each window texture: black walls, and about half the windows lit.
+// It tiles four windows by four, so the lit pattern does not repeat on every floor.
+let litTextures;
+function litWindows(style) {
+  if (!litTextures) {
+    const rng = mulberry32(1234);
+    const make = ([x, y, w, h]) => {
+      const tex = canvasTexture(256, 256, ctx => {
+        ctx.fillStyle = '#000'; ctx.fillRect(0, 0, 256, 256);
+        for (let cx = 0; cx < 4; cx++) for (let cy = 0; cy < 4; cy++) {
+          if (rng() > 0.5) continue;
+          ctx.fillStyle = rng() < 0.75 ? '#ffd98a' : '#cfe6ff';
+          ctx.fillRect(cx * 64 + x, cy * 64 + y, w, h);
+        }
+      }, { repeat: true });
+      tex.repeat.set(0.25, 0.25);
+      return tex;
+    };
+    litTextures = { res: make([15, 12, 34, 36]), office: make([3, 10, 58, 42]) };
+  }
+  return litTextures[style];
+}
+
 const wallMats = new Map();
 function wallMat(color, style, glassy) {
   const key = `${color}|${style}|${glassy}`;
   if (!wallMats.has(key)) {
+    const plain = style === 'plain';
     wallMats.set(key, new THREE.MeshStandardMaterial({
-      color, map: style === 'plain' ? null : windows(style), flatShading: true,
+      color, map: plain ? null : windows(style), flatShading: true,
       roughness: glassy ? 0.22 : 0.8, metalness: glassy ? 0.55 : 0.02,
+      // windows glow after dark: weather.js raises emissiveIntensity at night
+      emissive: plain ? 0x000000 : 0xffffff, emissiveMap: plain ? null : litWindows(style), emissiveIntensity: 0,
     }));
   }
   return wallMats.get(key);
@@ -583,6 +609,17 @@ function sky(scene) {
   dome.renderOrder = -1;
   scene.add(dome);
 
+  // stars: invisible by day, faded in at night by weather.js
+  const starRng = mulberry32(7), points = [];
+  for (let n = 0; n < 500; n++) {
+    const a = starRng() * Math.PI * 2, e = 0.12 + starRng() * 1.4;
+    points.push(Math.cos(a) * Math.cos(e) * 1800, Math.sin(e) * 1800, Math.sin(a) * Math.cos(e) * 1800);
+  }
+  const starGeo = new THREE.BufferGeometry();
+  starGeo.setAttribute('position', new THREE.Float32BufferAttribute(points, 3));
+  const stars = new THREE.Points(starGeo, new THREE.PointsMaterial({ color: 0xffffff, size: 2, sizeAttenuation: false, transparent: true, opacity: 0, fog: false, depthWrite: false }));
+  scene.add(stars);
+
   const clouds = [];
   const rng = mulberry32(99);
   const puff = new THREE.IcosahedronGeometry(1, 1);
@@ -599,7 +636,7 @@ function sky(scene) {
     scene.add(cloud);
     clouds.push(cloud);
   }
-  return clouds;
+  return { clouds, uniforms: dome.material.uniforms, cloudMaterial: white, stars: stars.material };
 }
 
 function surroundings(scene, boxes) {
@@ -703,10 +740,15 @@ export function buildWorld(scene) {
   mergeStatic(city.root, new Set(city.spinners));
   scene.add(city.root);
   plantTrees(scene, city.trees, city.rng);
-  const clouds = sky(scene);
+  const heavens = sky(scene);
+  const clouds = heavens.clouds;
 
   const inRect = (r, x, z) => x >= r.minX && x <= r.maxX && z >= r.minZ && z <= r.maxZ;
   return {
+    // handles for weather.js: sky colours, cloud and star materials, building walls, the road surface
+    sky: heavens,
+    wallMaterials: [...wallMats.values()],
+    asphalt: mat(0x41464d, { rough: 0.95 }),
     boxes: city.boxes,
     circles: city.circles,
     lawns: city.lawns,
