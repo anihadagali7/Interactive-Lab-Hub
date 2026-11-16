@@ -96,6 +96,8 @@ All the numbers are in `src/scoring.js` and `src/props.js`.
 - A day that lasts about 16 minutes, with lit windows, street lamps and headlights at night.
 - Rain that comes and goes. It cuts tyre grip to 55%.
 - Worn tarmac with cracks, patches and oil stains.
+- Paint, glass and water that reflect the sky, which is re-captured every few seconds so the
+  reflections follow the time of day and the weather. A sun (and moon) in the sky, ripples on the sea.
 
 ## Files
 

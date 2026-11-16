@@ -48,11 +48,21 @@ function mesh(geometry, material, x = 0, y = 0, z = 0) {
 }
 
 /** Extrude a side-view outline [[z, y], ...] across the car's width. */
-function extrudeProfile(points, width) {
+/**
+ * Extrude a side-view outline [[z, y], ...] across the car's width, with chamfered side edges.
+ * @param taper share of the width lost at the top: a cabin leans in toward its roof
+ */
+function extrudeProfile(points, width, taper = 0) {
   const shape = new THREE.Shape(points.map(([z, y]) => new THREE.Vector2(z, y)));
-  const geo = new THREE.ExtrudeGeometry(shape, { depth: width, bevelEnabled: false });
+  const edge = 0.06;
+  const geo = new THREE.ExtrudeGeometry(shape, { depth: width - edge * 2, bevelEnabled: true, bevelThickness: edge, bevelSize: edge, bevelOffset: -edge, bevelSegments: 1 });
   geo.rotateY(-Math.PI / 2);          // outline x -> car z (length), extrusion -> car x (width)
-  geo.translate(width / 2, 0, 0);
+  geo.translate(width / 2 - edge, 0, 0);
+  if (taper) {
+    const ys = points.map(p => p[1]), low = Math.min(...ys), high = Math.max(...ys), at = geo.attributes.position;
+    for (let k = 0; k < at.count; k++) at.setX(k, at.getX(k) * (1 - taper * (at.getY(k) - low) / (high - low)));
+    geo.computeVertexNormals();
+  }
   return geo;
 }
 
@@ -63,6 +73,7 @@ const BODIES = {
     glass: [[1.0, 0.92], [0.35, 1.42], [-1.0, 1.42], [-1.6, 0.92]],
     roof: { z: -0.325, y: 1.45, length: 1.36 },
     axles: [1.38, -1.38],
+    taper: 0.16, pillars: [-0.3], seams: [0.72, -0.3, -1.3], mirrors: 0.8,
   },
   van: {
     lower: [[-2.3, 0.3], [2.2, 0.3], [2.25, 0.7], [2.05, 1.0], [-2.3, 1.0]],
@@ -70,18 +81,27 @@ const BODIES = {
     box: [[0.45, 1.0], [0.45, 1.84], [-2.3, 1.84], [-2.3, 1.0]],
     roof: { z: 0.95, y: 1.81, length: 1.0 },
     axles: [1.45, -1.45],
+    taper: 0, pillars: [], seams: [1.5, 0.45, -0.9], mirrors: 1.6,
   },
   pickup: {
     lower: [[-2.4, 0.34], [2.2, 0.34], [2.25, 0.7], [2.1, 0.95], [0.9, 1.02], [-2.4, 1.02]],
     glass: [[0.9, 1.0], [0.5, 1.6], [-0.45, 1.6], [-0.6, 1.0]],
     roof: { z: 0.02, y: 1.63, length: 0.96 },
     axles: [1.4, -1.5],
+    taper: 0.12, pillars: [], seams: [0.7, -0.6], mirrors: 0.75,
   },
 };
 
 const WIDTH = 1.86;
 const WHEEL_R = 0.36;
-const glassMat = () => mat(0x1b2a38, { rough: 0.15, metal: 0.6 });
+const glassMat = () => mat(0x4d6279, { rough: 0.08, metal: 0.9 });
+// Car paint: a clear coat over the colour, so it picks up the sky.
+const paints = new Map();
+const newPaint = color => new THREE.MeshPhysicalMaterial({ color, roughness: 0.45, metalness: 0.25, clearcoat: 1, clearcoatRoughness: 0.12, flatShading: true });
+function paintMat(color) {
+  if (!paints.has(color)) paints.set(color, newPaint(color));
+  return paints.get(color);
+}
 
 let taxiTextures;
 function taxiDecals() {
@@ -151,18 +171,45 @@ export function buildCar({ color = 0xffc21a, type = 'sedan', taxi = false } = {}
   const body = BODIES[type];
   const group = new THREE.Group();
   // The taxi gets materials of its own, because damage recolours them.
-  const paint = taxi
-    ? new THREE.MeshStandardMaterial({ color, roughness: 0.42, metalness: 0.3, flatShading: true })
-    : mat(color, { rough: 0.42, metal: 0.3 });
+  const paint = taxi ? newPaint(color) : paintMat(color);
+  const dark = mat(0x2a2d33, { rough: 0.6 }), chrome = mat(0xd5dae0, { rough: 0.2, metal: 0.9 });
+  const frontZ = Math.max(...body.lower.map(p => p[0])), rearZ = Math.min(...body.lower.map(p => p[0]));
+  const cabinW = WIDTH - 0.22, topW = cabinW * (1 - body.taper);
+  const glassYs = body.glass.map(p => p[1]), sill = Math.min(...glassYs), top = Math.max(...glassYs);
 
   group.add(mesh(extrudeProfile(body.lower, WIDTH), paint));
-  group.add(mesh(extrudeProfile(body.glass, WIDTH - 0.22), glassMat()));
+  group.add(mesh(extrudeProfile(body.glass, cabinW, body.taper), glassMat()));
   if (body.box) group.add(mesh(extrudeProfile(body.box, WIDTH), paint));
-  group.add(mesh(new THREE.BoxGeometry(WIDTH - 0.3, 0.07, body.roof.length), paint, 0, body.roof.y, body.roof.z));
+  group.add(mesh(new THREE.BoxGeometry(topW + 0.06, 0.07, body.roof.length), paint, 0, body.roof.y, body.roof.z));
+
+  for (const side of [-1, 1]) {
+    // pillars between the side windows, leaning in with the cabin
+    for (const z of body.pillars) {
+      const pillar = mesh(new THREE.BoxGeometry(0.05, top - sill + 0.04, 0.13), paint, side * ((cabinW + topW) / 4 + 0.005), (sill + top) / 2, z);
+      pillar.rotation.z = side * Math.atan((cabinW - topW) / 2 / (top - sill));
+      group.add(pillar);
+    }
+    // door seams and handles
+    body.seams.forEach((z, k) => {
+      group.add(mesh(new THREE.BoxGeometry(0.012, sill - 0.42, 0.025), dark, side * (WIDTH / 2 + 0.002), (sill + 0.42) / 2, z));
+      if (k) group.add(mesh(new THREE.BoxGeometry(0.03, 0.035, 0.16), chrome, side * (WIDTH / 2 + 0.008), sill - 0.1, z + 0.22));
+    });
+    // wing mirrors
+    group.add(mesh(new THREE.BoxGeometry(0.2, 0.12, 0.09), paint, side * (WIDTH / 2 + 0.07), sill + 0.06, body.mirrors));
+    // dark sill along the bottom, and a wheel well behind each wheel
+    group.add(mesh(new THREE.BoxGeometry(0.03, 0.1, frontZ - rearZ - 0.3), dark, side * (WIDTH / 2 - 0.005), 0.35, (frontZ + rearZ) / 2));
+    for (const z of body.axles) {
+      const well = mesh(new THREE.CircleGeometry(WHEEL_R + 0.1, 14, 0, Math.PI), mat(0x101114, { rough: 1 }), side * (WIDTH / 2 + 0.004), WHEEL_R - 0.02, z);
+      well.rotation.y = side * Math.PI / 2; well.castShadow = false;
+      group.add(well);
+    }
+  }
+  // grille and number plates
+  group.add(mesh(new THREE.BoxGeometry(0.66, 0.16, 0.05), dark, 0, 0.69, frontZ - 0.04));
+  const plate = mat(0xf2f2ee, { rough: 0.5 });
+  group.add(mesh(new THREE.BoxGeometry(0.42, 0.13, 0.03), plate, 0, 0.5, frontZ + 0.02), mesh(new THREE.BoxGeometry(0.42, 0.13, 0.03), plate, 0, 0.56, rearZ - 0.015));
 
   // bumpers and lights
-  const dark = mat(0x2a2d33, { rough: 0.6 });
-  const frontZ = Math.max(...body.lower.map(p => p[0])), rearZ = Math.min(...body.lower.map(p => p[0]));
   const frontBumper = mesh(new THREE.BoxGeometry(WIDTH + 0.06, 0.16, 0.14), dark, 0, 0.4, frontZ - 0.02);
   const rearBumper = mesh(new THREE.BoxGeometry(WIDTH + 0.06, 0.16, 0.14), dark, 0, 0.4, rearZ + 0.02);
   group.add(frontBumper, rearBumper);
@@ -180,15 +227,16 @@ export function buildCar({ color = 0xffc21a, type = 'sedan', taxi = false } = {}
 
   // wheels: front pair hangs off pivots so it can steer
   const tyreGeo = new THREE.CylinderGeometry(WHEEL_R, WHEEL_R, 0.26, 14).rotateZ(Math.PI / 2);
-  const hubGeo = new THREE.CylinderGeometry(WHEEL_R * 0.55, WHEEL_R * 0.55, 0.28, 8).rotateZ(Math.PI / 2);
+  const hubGeo = new THREE.CylinderGeometry(WHEEL_R * 0.62, WHEEL_R * 0.62, 0.28, 10).rotateZ(Math.PI / 2);
+  const spokeGeo = new THREE.BoxGeometry(0.3, WHEEL_R * 1.2, 0.07);
   const tyre = mat(0x17181b, { rough: 0.9 }), hub = mat(0xc9ced6, { rough: 0.35, metal: 0.7 });
   const wheels = [], steerPivots = [];
   body.axles.forEach((z, axle) => {
     for (const side of [-1, 1]) {
       const pivot = new THREE.Group();
-      pivot.position.set(side * (WIDTH / 2 - 0.1), WHEEL_R, z);
+      pivot.position.set(side * (WIDTH / 2 - 0.08), WHEEL_R, z);
       const wheel = new THREE.Group();
-      wheel.add(mesh(tyreGeo, tyre), mesh(hubGeo, hub));
+      wheel.add(mesh(tyreGeo, tyre), mesh(hubGeo, hub), mesh(spokeGeo, tyre), mesh(spokeGeo.clone().rotateX(Math.PI / 2), tyre));
       pivot.add(wheel);
       group.add(pivot);
       wheels.push(wheel);
@@ -218,7 +266,7 @@ export function buildCar({ color = 0xffc21a, type = 'sedan', taxi = false } = {}
     const side = WIDTH / 2 + 0.012, quarter = Math.PI / 2;
     scar(0.1, scratches, 1.7, 0.36, side, 0.56, 1.1, 0, quarter);              // right front wing
     scar(0.25, dent, 1.2, 1.0, 0, 0.9, 1.52, -quarter + 0.078, 0);             // bonnet
-    scar(0.4, crack, 1.5, 0.74, 0, 1.18, 0.685, -0.915, 0);                    // windscreen
+    scar(0.4, crack, 1.36, 0.74, 0, 1.18, 0.685, -0.915, 0);                    // windscreen
     scar(0.5, scratches, 1.9, 0.4, -side, 0.58, -0.9, 0, -quarter);            // left rear door
     scar(0.65, dent, 0.9, 0.5, -side, 0.6, 1.3, 0, -quarter);                  // left front wing
     scar(0.75, scratches, 1.6, 0.34, side, 0.6, -1.1, 0, quarter);             // right rear door

@@ -29,8 +29,19 @@ export class Atmosphere {
    * @param lamps  [{x, y, z, alive}] street lamps, for their glow at night
    * @param headlights a THREE.SpotLight on the taxi
    */
-  constructor({ scene, world, sun, ambient, lamps, headlights }) {
+  constructor({ scene, world, sun, ambient, lamps, headlights, renderer }) {
     Object.assign(this, { scene, world, sun, ambient, lamps, headlights });
+
+    // What shiny things reflect: the same sky, over a dull ground, re-rendered every few seconds
+    // so paint, glass and water pick up the time of day and the weather.
+    this.pmrem = new THREE.PMREMGenerator(renderer);
+    this.mirror = new THREE.Scene();
+    this.mirrorGround = new THREE.MeshBasicMaterial({ color: 0x4a4e52 });
+    const floor = new THREE.Mesh(new THREE.CircleGeometry(400, 24).rotateX(-Math.PI / 2), this.mirrorGround);
+    floor.position.y = -6;
+    this.mirror.add(new THREE.Mesh(new THREE.SphereGeometry(300, 24, 12), world.sky.material), floor);
+    this.mirrorClock = 99;
+    scene.environmentIntensity = 0.35;
     this.hour = START_HOUR;
     this.rain = 0;                 // 0 dry .. 1 pouring, eased toward rainTarget
     this.rainTarget = 0;
@@ -115,6 +126,18 @@ export class Atmosphere {
     const arc = ((this.hour - 6) / 12) * Math.PI, up = Math.sin(arc);
     const high = Math.max(0.3, Math.abs(up)), along = Math.cos(arc) * (up >= 0 ? 1 : -1);
     this.sunOffset.set(along * 150, high * 170, 70).normalize().multiplyScalar(190);
+    sky.sunDir.value.copy(this.sunOffset).normalize();
+    sky.sunColor.value.copy(this.sun.color);
+    sky.sunGlow.value = (1 - 0.5 * this.night) * (1 - this.rain);
+
+    if ((this.mirrorClock += dt) > 3) {
+      this.mirrorClock = 0;
+      this.mirrorGround.color.copy(sky.horizon.value).multiplyScalar(0.3);
+      const fresh = this.pmrem.fromScene(this.mirror, 0, 1, 1000);
+      this.scene.environment = fresh.texture;
+      this.reflection?.dispose();
+      this.reflection = fresh;
+    }
 
     this.world.sky.stars.opacity = this.night * (1 - this.rain);
     this.world.sky.cloudMaterial.color.setScalar(1 - 0.72 * this.night - 0.3 * this.rain * (1 - this.night));

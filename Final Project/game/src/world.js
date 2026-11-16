@@ -135,6 +135,15 @@ class Lot {
     if (solid) this.solid(lx, lz, w, d);
     const side = wallMat(color, style, glassy), top = mat(roof);
     const m = new THREE.Mesh(wallGeometry(w, h, d), [side, side, top, top, side, side]);
+    if (h > 10 && !y) {
+      // taller buildings get a stone footing and a parapet round the roof, so they are not bare boxes
+      this.box(lx, lz, w + 0.5, d + 0.5, 0.7, 0x8f939b);
+      const wall = glassy ? 0x7f8fa0 : color, t = 0.35, ph = 0.9;
+      for (const s of [-1, 1]) {
+        this.box(lx, lz + s * (d - t) / 2, w + 0.3, t + 0.3, ph, wall, { y: h });
+        this.box(lx + s * (w - t) / 2, lz, t + 0.3, d + 0.3, ph, wall, { y: h });
+      }
+    }
     return this.add(m, lx, y + h / 2, lz);
   }
 
@@ -598,10 +607,19 @@ function sky(scene) {
     new THREE.SphereGeometry(1900, 24, 12),
     new THREE.ShaderMaterial({
       side: THREE.BackSide, depthWrite: false, fog: false,
-      uniforms: { top: { value: new THREE.Color(0x2f86e0) }, horizon: { value: new THREE.Color(0xd4ecfb) } },
-      vertexShader: 'varying float h; void main(){ h = normalize(position).y; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
-      fragmentShader: `uniform vec3 top; uniform vec3 horizon; varying float h;
-        void main(){ gl_FragColor = vec4(mix(horizon, top, pow(clamp(h, 0.0, 1.0), 0.55)), 1.0);
+      uniforms: {
+        top: { value: new THREE.Color(0x2f86e0) }, horizon: { value: new THREE.Color(0xd4ecfb) },
+        // the sun (or, after dark, the moon): set by weather.js
+        sunDir: { value: new THREE.Vector3(0.4, 0.8, 0.3).normalize() }, sunColor: { value: new THREE.Color(0xfff1d6) }, sunGlow: { value: 1 },
+      },
+      vertexShader: 'varying vec3 dir; void main(){ dir = normalize(position); gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+      fragmentShader: `uniform vec3 top; uniform vec3 horizon; uniform vec3 sunDir; uniform vec3 sunColor; uniform float sunGlow; varying vec3 dir;
+        void main(){
+          vec3 d = normalize(dir);
+          float near = max(dot(d, sunDir), 0.0);
+          // a hard disc, a tight halo and a wide soft glow
+          float sun = smoothstep(0.9994, 0.9997, near) * 1.6 + pow(near, 350.0) * 0.5 + pow(near, 10.0) * 0.12;
+          gl_FragColor = vec4(mix(horizon, top, pow(clamp(d.y, 0.0, 1.0), 0.55)) + sunColor * sun * sunGlow, 1.0);
         #include <tonemapping_fragment>
         #include <colorspace_fragment>
         }`,
@@ -636,7 +654,7 @@ function sky(scene) {
     scene.add(cloud);
     clouds.push(cloud);
   }
-  return { clouds, uniforms: dome.material.uniforms, cloudMaterial: white, stars: stars.material };
+  return { clouds, material: dome.material, uniforms: dome.material.uniforms, cloudMaterial: white, stars: stars.material };
 }
 
 /** Worn tarmac: stone speckle, uneven patches, cracks, repairs and oil stains. One tile is 20 m. */
@@ -695,6 +713,21 @@ function surroundings(scene, boxes) {
   asphalt.bumpScale = 0.5;
   ground(SIZE + 90, -0.25, 0xead9a8, { rough: 1 });                // beach
   ground(6000, -0.6, 0x3fa9d6, { rough: 0.25, metal: 0.2 });       // sea
+  // ripples: a soft bump pattern that update() slides across the water
+  const ripples = canvasTexture(256, 256, (ctx, w, h) => {
+    const rng = mulberry32(31);
+    ctx.fillStyle = '#808080'; ctx.fillRect(0, 0, w, h);
+    for (let n = 0; n < 240; n++) {
+      const x = rng() * w, y = rng() * h, rx = 10 + rng() * 26, light = rng() < 0.5;
+      for (const [ox, oy] of [[0, 0], [w, 0], [-w, 0], [0, h], [0, -h]]) {          // drawn again across each edge so the tile repeats
+        ctx.fillStyle = light ? 'rgba(255,255,255,0.10)' : 'rgba(0,0,0,0.10)';
+        ctx.beginPath(); ctx.ellipse(x + ox, y + oy, rx, rx * 0.28, 0, 0, 6.3); ctx.fill();
+      }
+    }
+  }, { repeat: true });
+  ripples.repeat.set(6000 / 28, 6000 / 28);
+  const sea = mat(0x3fa9d6, { rough: 0.25, metal: 0.2 });
+  sea.bumpMap = ripples; sea.bumpScale = 3;
 
   // promenade and sea wall around the edge
   const edge = HALF + 3, wall = HALF + 6.2;
@@ -720,6 +753,7 @@ function surroundings(scene, boxes) {
     hill.rotation.y = rng() * 6;
     scene.add(hill);
   }
+  return ripples;
 }
 
 /**
@@ -769,7 +803,7 @@ export function buildWorld(scene) {
     scene, root: new THREE.Group(), rng: mulberry32(20261207),
     boxes: [], circles: [], lawns: [], ponds: [], trees: [], spinners: [],
   };
-  surroundings(scene, city.boxes);
+  const ripples = surroundings(scene, city.boxes);
   roadMarkings(scene);
 
   const sidewalk = new THREE.BoxGeometry(BLOCK, SIDEWALK_H, BLOCK);
@@ -815,6 +849,7 @@ export function buildWorld(scene) {
     blocked(x, z) { return city.boxes.some(b => inRect(b, x, z)); },
 
     update(dt) {
+      ripples.offset.x += dt * 0.012; ripples.offset.y += dt * 0.02;
       for (const c of clouds) { c.position.x += dt * 2.2; if (c.position.x > 1200) c.position.x = -1200; }
       for (const s of city.spinners) s.rotation.y += dt * 0.6;
     },
