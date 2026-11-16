@@ -35,7 +35,8 @@ export class Car {
     this.braking = false;
     this.slip = 0;             // sideways speed before the tyres bite, m/s: how hard the car is sliding
     this.power = 1;            // top-speed multiplier: a damaged engine is slower
-    this.grip = 1;             // tyre grip multiplier: a wet road is slippery
+    this.grip = 1;             // tyre grip multiplier: a wet road or grass is slippery
+    this.pull = 0;             // steering bias, -1..1: a bent wheel drags the car to one side
   }
 
   get fx() { return Math.sin(this.yaw); }
@@ -82,15 +83,20 @@ export class Car {
     if (handbrake) this.braking = true;
 
     // --- steering: the faster the car, the less the wheels are allowed to turn
-    this.steer += clamp(steer - this.steer, -STEER_RATE * dt, STEER_RATE * dt);
+    this.steer += clamp(clamp(steer + this.pull, -1, 1) - this.steer, -STEER_RATE * dt, STEER_RATE * dt);
     const lock = 0.55 / (1 + (Math.abs(fwd) / 9) ** 1.5);
     // A right turn lowers the yaw (see layout.js for the axes).
+    const wasX = this.fx, wasZ = this.fz;
     this.yaw -= fwd / WHEELBASE * Math.tan(this.steer * lock) * dt;
 
-    // --- grip: lose sideways velocity, then rebuild the world velocity on the new heading
+    // --- grip: the heading has turned but the velocity has not, so part of it now points
+    // sideways. The tyres bleed that off; the less grip, the wider the car slides.
+    const fx = this.fx, fz = this.fz;
+    const wx = wasX * fwd - wasZ * side, wz = wasZ * fwd + wasX * side;
+    fwd = wx * fx + wz * fz;
+    side = -wx * fz + wz * fx;
     this.slip = Math.abs(side);
     side *= Math.exp(-(handbrake ? HANDBRAKE_GRIP : GRIP) * this.grip * dt);
-    const fx = this.fx, fz = this.fz;
     this.vx = fx * fwd - fz * side;
     this.vz = fz * fwd + fx * side;
     this.x += this.vx * dt;
@@ -143,6 +149,24 @@ export class Car {
     return { speed: hardest, circle: hitCircle };
   }
 }
+
+/**
+ * What damage does to the driving. Nothing until a fifth of the health is gone, then the engine
+ * weakens, the tyres hold less, and the steering pulls harder to one side.
+ * @param health 100 (new) to 0 (wrecked)
+ * @returns power and grip multipliers, and pull as a share of full steering lock
+ */
+export function damageHandling(health) {
+  const wear = clamp((80 - health) / 80, 0, 1);
+  return { power: 1 - 0.4 * wear, grip: 1 - 0.3 * wear, pull: 0.24 * wear };
+}
+
+/**
+ * Driving up or down a curb. Free at a crawl, so pulling over to a rider costs nothing.
+ * @returns null, or the health points lost and the share of speed lost
+ */
+export const curbJolt = speed =>
+  speed < 3 ? null : { damage: Math.min(4, 0.6 + speed * 0.12), slow: 0.06 };
 
 /** How much a rider minds an impact: nothing for a scrape, about 0.5 for a bump, 1.5 for a crash. */
 export const impactSeverity = closingSpeed =>

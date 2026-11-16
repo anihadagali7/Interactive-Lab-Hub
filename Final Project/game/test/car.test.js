@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { Car, TOP_SPEED, NITRO_SPEED, impactSeverity } from '../src/car.js';
+import { Car, TOP_SPEED, NITRO_SPEED, impactSeverity, damageHandling, curbJolt } from '../src/car.js';
 
 const idle = { steer: 0, drive: 0, handbrake: false, nitro: false };
 const run = (car, seconds, controls, dt = 1 / 120) => {
@@ -89,4 +89,38 @@ test('a post pushes the car aside', () => {
     const d = Math.hypot(car.x + car.fx * o - post.x, car.z + car.fz * o - post.z);
     assert.ok(d >= 0.95 + 0.3 - 0.05, 'no probe overlaps the post');
   }
+});
+
+test('damage makes the car slower, looser and crooked, but only once it is real damage', () => {
+  assert.deepEqual(damageHandling(100), { power: 1, grip: 1, pull: 0 });
+  assert.deepEqual(damageHandling(85), { power: 1, grip: 1, pull: 0 }, 'a scrape changes nothing');
+  const half = damageHandling(50), bad = damageHandling(10);
+  assert.ok(half.power < 1 && bad.power < half.power && bad.power >= 0.6);
+  assert.ok(bad.grip < half.grip && bad.pull > half.pull && bad.pull < 0.3);
+
+  const top = power => { const car = new Car(); car.power = power; run(car, 25, { drive: 1 }); return car.forwardSpeed; };
+  assert.ok(top(bad.power) < top(1) - 5, 'a wreck has a lower top speed');
+
+  const car = new Car();
+  car.pull = bad.pull;
+  run(car, 4, { drive: 1 });
+  assert.ok(car.x < -3, `hands off, a car that pulls right drifts right, toward -x (${car.x})`);
+});
+
+test('grass-level grip slides wider through the same turn', () => {
+  const slide = grip => {
+    const car = new Car(); car.grip = grip;
+    run(car, 4, { drive: 1 });
+    let worst = 0;
+    for (let t = 0; t < 1.5; t += 1 / 120) { car.update(1 / 120, { ...idle, drive: 1, steer: 1 }); worst = Math.max(worst, car.slip); }
+    return worst;
+  };
+  assert.ok(slide(0.5) > slide(1) * 1.4);
+});
+
+test('a curb is free at a crawl and a small knock at speed', () => {
+  assert.equal(curbJolt(2), null);
+  const town = curbJolt(10), flat = curbJolt(TOP_SPEED);
+  assert.ok(town.damage > 0 && town.damage < 3 && flat.damage > town.damage && flat.damage <= 4);
+  assert.ok(flat.damage < impactSeverity(TOP_SPEED) * 16 / 4, 'far gentler than hitting a wall');
 });

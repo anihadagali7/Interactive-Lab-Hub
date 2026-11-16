@@ -639,6 +639,50 @@ function sky(scene) {
   return { clouds, uniforms: dome.material.uniforms, cloudMaterial: white, stars: stars.material };
 }
 
+/** Worn tarmac: stone speckle, uneven patches, cracks, repairs and oil stains. One tile is 20 m. */
+function asphaltTexture() {
+  const rng = mulberry32(77), TILE = 20;
+  const tex = canvasTexture(512, 512, (ctx, w, h) => {
+    const grey = (v, a) => `rgba(${v},${v},${v},${a})`;
+    const inside = () => 50 + rng() * (w - 100);            // keeps big shapes off the edges, so the tile repeats cleanly
+    ctx.fillStyle = grey(250, 1); ctx.fillRect(0, 0, w, h);
+    for (let n = 0; n < 60; n++) {                          // uneven wear
+      const x = inside(), y = inside(), r = 18 + rng() * 30;
+      const blob = ctx.createRadialGradient(x, y, 0, x, y, r);
+      blob.addColorStop(0, grey(rng() < 0.5 ? 150 : 255, 0.14)); blob.addColorStop(1, grey(200, 0));
+      ctx.fillStyle = blob; ctx.fillRect(x - r, y - r, r * 2, r * 2);
+    }
+    for (let n = 0; n < 16000; n++) {                       // stones in the tar
+      ctx.fillStyle = grey(170 + Math.floor(rng() * 85), 0.55);
+      ctx.fillRect(rng() * w, rng() * h, 1 + rng() * 1.6, 1 + rng() * 1.6);
+    }
+    for (let n = 0; n < 2; n++) {                           // patched repairs
+      const x = inside() * 0.7, y = inside() * 0.7, pw = 50 + rng() * 60, ph = 30 + rng() * 40;
+      ctx.fillStyle = grey(120, 0.3); ctx.fillRect(x, y, pw, ph);
+      ctx.strokeStyle = grey(40, 0.6); ctx.lineWidth = 2; ctx.strokeRect(x, y, pw, ph);
+    }
+    ctx.strokeStyle = grey(35, 0.7);
+    for (let n = 0; n < 9; n++) {                           // cracks
+      let x = inside(), y = inside(), angle = rng() * 6.3;
+      ctx.lineWidth = 0.8 + rng() * 1.2; ctx.beginPath(); ctx.moveTo(x, y);
+      for (let k = 0; k < 9; k++) {
+        angle += (rng() - 0.5) * 1.3;
+        x = Math.max(8, Math.min(w - 8, x + Math.cos(angle) * 14)); y = Math.max(8, Math.min(h - 8, y + Math.sin(angle) * 14));
+        ctx.lineTo(x, y);
+      }
+      ctx.stroke();
+    }
+    for (let n = 0; n < 3; n++) {                           // oil
+      const x = inside(), y = inside(), r = 8 + rng() * 10;
+      const stain = ctx.createRadialGradient(x, y, 0, x, y, r);
+      stain.addColorStop(0, grey(30, 0.5)); stain.addColorStop(1, grey(30, 0));
+      ctx.fillStyle = stain; ctx.fillRect(x - r, y - r, r * 2, r * 2);
+    }
+  }, { repeat: true });
+  tex.repeat.set(SIZE / TILE, SIZE / TILE);
+  return tex;
+}
+
 function surroundings(scene, boxes) {
   const ground = (size, y, color, finish) => {
     const m = new THREE.Mesh(new THREE.PlaneGeometry(size, size).rotateX(-Math.PI / 2), mat(color, finish));
@@ -646,6 +690,9 @@ function surroundings(scene, boxes) {
     scene.add(m);
   };
   ground(SIZE, 0, 0x41464d, { rough: 0.95 });                      // asphalt: every road is just the gap between blocks
+  const asphalt = mat(0x41464d, { rough: 0.95 });
+  asphalt.map = asphalt.bumpMap = asphaltTexture();
+  asphalt.bumpScale = 0.5;
   ground(SIZE + 90, -0.25, 0xead9a8, { rough: 1 });                // beach
   ground(6000, -0.6, 0x3fa9d6, { rough: 0.25, metal: 0.2 });       // sea
 
@@ -754,14 +801,14 @@ export function buildWorld(scene) {
     lawns: city.lawns,
     ponds: city.ponds,
 
-    /** Ground height and extra drag under a point. */
+    /** Ground height, extra drag and tyre grip under a point. Grass is slow and slippery. */
     surfaceAt(x, z) {
       const i = Math.floor((x - blockMin(0)) / PITCH), j = Math.floor((z - blockMin(0)) / PITCH);
       const onBlock = i >= 0 && i < N && j >= 0 && j < N && x - blockMin(i) <= BLOCK && z - blockMin(j) <= BLOCK;
       const onRoad = !onBlock && Math.abs(x) <= HALF && Math.abs(z) <= HALF;
-      if (onRoad) return { height: 0, drag: 0 };
+      if (onRoad) return { height: 0, drag: 0, grip: 1, grass: false };
       const grass = onBlock && city.lawns.some(r => inRect(r, x, z));
-      return { height: SIDEWALK_H, drag: grass ? 1.3 : 0.2 };
+      return { height: SIDEWALK_H, drag: grass ? 0.6 : 0.2, grip: grass ? 0.5 : 1, grass };
     },
 
     /** True if a point is inside a building or wall. */

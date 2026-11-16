@@ -42,7 +42,7 @@ function buildMarker(color) {
 const newTrip = () => ({
   damage: 0,            // safety stars lost
   rules: 0,             // rules stars lost
-  counts: { crashes: 0, redLights: 0, pedestriansHit: 0, scares: 0, props: 0, wrongSide: 0, sidewalk: 0, skid: 0 },
+  counts: { crashes: 0, redLights: 0, pedestriansHit: 0, scares: 0, props: 0, curbs: 0, wrongSide: 0, sidewalk: 0, skid: 0 },
 });
 
 /** One line for the rating card: what went wrong on the trip. */
@@ -53,6 +53,7 @@ export function summarize(c) {
   if (c.redLights) parts.push(plural(c.redLights, 'red light'));
   if (c.scares) parts.push(`scared ${plural(c.scares, 'pedestrian')}`);
   if (c.props) parts.push(`knocked over ${plural(c.props, 'thing')}`);
+  if (c.curbs) parts.push(`bumped ${plural(c.curbs, 'curb')}`);
   if (c.wrongSide >= 1) parts.push(`${Math.round(c.wrongSide)} s on the wrong side`);
   if (c.sidewalk >= 1) parts.push(`${Math.round(c.sidewalk)} s on the pavement`);
   if (c.skid >= 2) parts.push('a lot of skidding');
@@ -219,7 +220,7 @@ export class Rides {
 
   /**
    * Something happened on the road.
-   * @param kind   crash | redLight | wrongSide | sidewalk | skid | pedestrianHit | pedestrianScare | prop
+   * @param kind   crash | redLight | wrongSide | sidewalk | skid | pedestrianHit | pedestrianScare | prop | curb
    * @param amount crash: severity; wrongSide, sidewalk, skid: seconds; prop: {penalty, fine, name}
    */
   report(kind, amount = 1) {
@@ -247,6 +248,9 @@ export class Rides {
         break;
       case 'pedestrianScare':
         if (riding) { t.damage += SAFETY_COST.pedestrianScare; c.scares++; this.chat.react('pedestrianScare'); }
+        break;
+      case 'curb':
+        if (riding) { t.damage += SAFETY_COST.curb; c.curbs++; this.chat.react('bump'); }
         break;
       case 'prop':
         this.fine(amount.fine, `Knocked over a ${amount.name}`);

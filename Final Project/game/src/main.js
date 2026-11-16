@@ -1,7 +1,7 @@
 // Boots the game and runs the frame loop: input -> physics -> traffic and people -> rides -> camera -> draw.
 import * as THREE from 'three';
 import { input, attachKeyboard } from './input.js';
-import { Car, TOP_SPEED, impactSeverity } from './car.js';
+import { Car, TOP_SPEED, impactSeverity, curbJolt } from './car.js';
 import { buildWorld } from './world.js';
 import { buildCar } from './models.js';
 import { roadPos, LANE_OUTER, N, PITCH, mulberry32 } from './layout.js';
@@ -101,6 +101,8 @@ const game = {
   lastForward: 0,
   impactCooldown: 0,
   shake: 0,
+  surface: { height: 0, drag: 0, grip: 1, grass: false },     // what the taxi is driving on
+  warned: false,              // the driver has been told the damage is affecting the car
 };
 
 // ---- camera
@@ -139,7 +141,13 @@ function updateCamera(dt) {
 // ---- things that go wrong
 
 function harm(points) {
-  if (!vehicle.hurt(points)) return;
+  const wrecked = vehicle.hurt(points);
+  if (vehicle.health >= 60) game.warned = false;         // repaired since the last warning
+  else if (!game.warned && !wrecked) {
+    game.warned = true;
+    hud.toast(`The taxi is damaged: it pulls to the ${vehicle.side > 0 ? 'right' : 'left'} and is losing speed.`, 3.5);
+  }
+  if (!wrecked) return;
   // wrecked: the taxi stops dead and is towed
   car.vx = car.vz = 0;
   rides.breakdown();
@@ -157,6 +165,17 @@ function onImpact(hit) {
   harm(severity * 16);
 }
 
+/** The taxi went up or down a curb: a jolt, a little damage, and the rider notices. */
+function onCurb() {
+  const jolt = curbJolt(car.speed);
+  if (!jolt) return;
+  car.vx *= 1 - jolt.slow; car.vz *= 1 - jolt.slow;
+  game.shake = Math.max(game.shake, 0.12 + jolt.damage * 0.08);
+  audio.thud(0.15 + jolt.damage * 0.06);
+  rides.report('curb');
+  harm(jolt.damage);
+}
+
 function onPropBroken(prop) {
   const type = PROP_TYPES[prop.type];
   game.shake = Math.max(game.shake, 0.25 + type.slow * 2);
@@ -169,14 +188,18 @@ function onPropBroken(prop) {
 const STEP = 1 / 120;
 
 function stepPhysics(dt, circles) {
-  car.power = vehicle.power;
-  car.grip = atmosphere.grip;
+  const surface = world.surfaceAt(car.x, car.z), was = game.surface.height, worn = vehicle.handling;
+  game.surface = surface;
+  if (surface.height !== was) onCurb();
+  car.power = worn.power;
+  car.pull = worn.pull;
+  car.grip = atmosphere.grip * surface.grip * worn.grip;
   car.update(dt, {
     steer: input.steer,
     drive: input.drive,
     handbrake: input.isDown('handbrake'),
     nitro: input.isDown('nitro'),
-  }, world.surfaceAt(car.x, car.z).drag);
+  }, surface.drag);
   for (const prop of props.hit(car)) onPropBroken(prop);
   const hit = car.collide(world.boxes, circles);
   if (hit.speed > 0) onImpact(hit);
@@ -194,6 +217,8 @@ function tyreEffects(dt) {
       skids.mark(side, x, y, z, car.yaw);
       if (sliding && Math.random() < dt * 14) particles.smoke(x, y + 0.2, z, 0xe6e6e6, 0.35);
     } else skids.lift(side);
+    // grass and dirt thrown up by the wheels
+    if (game.surface.grass && car.speed > 4 && Math.random() < dt * car.speed) particles.smoke(x, y + 0.15, z, Math.random() < 0.5 ? 0x5f8f3e : 0x7a5c3c, 0.3);
     if (car.boosting) particles.flame(car.x - car.fx * 2.35 + car.fz * side * 0.45, game.groundY + 0.42, car.z - car.fz * 2.35 - car.fx * side * 0.45, car.vx - car.fx * 5, car.vz - car.fz * 5);
   }
   audio.setScreech(sliding ? Math.min(1, car.slip / 8 + 0.3) : hardBraking ? 0.35 : 0);
@@ -258,7 +283,7 @@ function tick(dt) {
   const smooth = 1 - Math.exp(-8 * dt);
   game.lean += (car.steer * Math.min(1, Math.abs(fwd) / 14) * 0.07 - game.lean) * smooth;
   game.pitch += (Math.max(-0.05, Math.min(0.04, -accel * 0.0022)) - game.pitch) * smooth;
-  taxi.group.rotation.set(game.pitch, 0, game.lean);
+  taxi.group.rotation.set(game.pitch, 0, game.lean + vehicle.sag);
   for (const wheel of taxi.wheels) wheel.rotation.x += fwd * dt / 0.36;
   for (const pivot of taxi.steerPivots) pivot.rotation.y = -car.steer * 0.42;
   taxi.tailLights.emissiveIntensity = car.braking ? 2.4 : 0.35;

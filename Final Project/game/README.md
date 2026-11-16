@@ -60,7 +60,7 @@ Each trip gets four ratings from 1 to 5 stars. The overall rating is their weigh
 | Rating | Weight | What moves it |
 |---|---|---|
 | Speed | 25% | Trip time against the time the rider expected (4 stars at par, 5 at 80% of it). Riders allow up to 30% longer in rain and at night. |
-| Safety | 30% | Crashes by how hard they were, pedestrians hit (3 stars each) or scared (0.6), street furniture knocked over (up to 0.4), seconds spent skidding |
+| Safety | 30% | Crashes by how hard they were, pedestrians hit (3 stars each) or scared (0.6), street furniture knocked over (up to 0.4), curbs hit at speed (0.12 each), seconds spent skidding |
 | Road rules | 20% | Red lights run (1.2 stars each), seconds on the wrong side of the road (0.2 per second) or on the pavement (0.25 per second) |
 | Conversation | 25% | Average of your reply scores: kind 5, neutral 3, rude 1, no answer 2 |
 
@@ -73,6 +73,18 @@ Money is separate from stars and is charged whether or not a rider is on board:
 
 All the numbers are in `src/scoring.js` and `src/props.js`.
 
+## Surfaces and damage
+
+- **Road:** full grip. In rain the tyres hold 55% as well, so fast corners slide.
+- **Grass:** about two-thirds of the top speed and half the grip. The wheels throw up dirt.
+- **Curbs:** driving up or down one faster than about 7 mph jolts the car, costs 1 to 4 health
+  (more the faster you go) and 6% of your speed. At a crawl it is free.
+- **Damage:** nothing changes until a fifth of the health is gone. After that the top speed drops
+  (to 60% for a near wreck), the tyres hold less, and the steering pulls to one side, so you have
+  to steer against it. The taxi shows it: scratches, a dented bonnet, a cracked windscreen, soot,
+  a crooked then missing bumper, dead headlights, a sagging corner, smoke, then flames.
+- Repairs happen at the end of each ride. The handling numbers are in `damageHandling()` in `src/car.js`.
+
 ## What is in the city
 
 - A 6 by 6 block grid with 13 named places to pick up and drop off.
@@ -83,6 +95,7 @@ All the numbers are in `src/scoring.js` and `src/props.js`.
 - A boulevard with a palm-lined median, brick streets around Pixel Pizza, lane arrows, roadworks cones.
 - A day that lasts about 16 minutes, with lit windows, street lamps and headlights at night.
 - Rain that comes and goes. It cuts tyre grip to 55%.
+- Worn tarmac with cracks, patches and oil stains.
 
 ## Files
 

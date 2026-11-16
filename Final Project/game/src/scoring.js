@@ -27,6 +27,7 @@ export const SAFETY_COST = {
   pedestrianHit: 3,
   pedestrianScare: 0.6,
   skidSecond: 0.08,
+  curb: 0.12,
 };
 export const RULES_COST = {
   redLight: 1.2,

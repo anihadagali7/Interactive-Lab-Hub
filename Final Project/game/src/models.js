@@ -1,5 +1,6 @@
 // Low-poly models built in code: cars, people and the canvas textures they share.
 import * as THREE from 'three';
+import { mulberry32 } from './layout.js';
 
 const materials = new Map();
 /** Shared flat-shaded material, one per colour and finish. */
@@ -97,14 +98,54 @@ function taxiDecals() {
         ctx.fillRect(x * s, y * s, s, s);
       }
     }),
+    // scraped paint: dark gouges with bare metal showing through
+    scratches: canvasTexture(256, 64, (ctx, w, h) => {
+      const rng = mulberry32(9);
+      for (let n = 0; n < 34; n++) {
+        const x = rng() * w * 0.8, y = 6 + rng() * (h - 12), len = 30 + rng() * 90;
+        ctx.strokeStyle = n % 3 ? 'rgba(30,28,26,0.85)' : 'rgba(190,195,200,0.9)';
+        ctx.lineWidth = 1 + rng() * 3.5;
+        ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + len, y + (rng() - 0.5) * 10); ctx.stroke();
+      }
+    }),
+    // a crumpled panel: dark creases round a dent
+    dent: canvasTexture(128, 128, (ctx, w, h) => {
+      const rng = mulberry32(4);
+      const shade = ctx.createRadialGradient(w / 2, h / 2, 4, w / 2, h / 2, w / 2);
+      shade.addColorStop(0, 'rgba(20,18,16,0.6)'); shade.addColorStop(1, 'rgba(20,18,16,0)');
+      ctx.fillStyle = shade; ctx.fillRect(0, 0, w, h);
+      ctx.strokeStyle = 'rgba(15,14,13,0.85)'; ctx.lineWidth = 2.5;
+      for (let n = 0; n < 7; n++) {
+        const a = rng() * 6.3;
+        ctx.beginPath(); ctx.moveTo(w / 2, h / 2);
+        ctx.lineTo(w / 2 + Math.cos(a) * 30, h / 2 + Math.sin(a) * 30);
+        ctx.lineTo(w / 2 + Math.cos(a + 0.4) * 56, h / 2 + Math.sin(a + 0.4) * 56); ctx.stroke();
+      }
+    }),
+    // a starred windscreen
+    crack: canvasTexture(256, 128, (ctx, w, h) => {
+      const rng = mulberry32(2), cx = w * 0.32, cy = h * 0.45;
+      ctx.strokeStyle = 'rgba(235,245,255,0.9)';
+      for (let n = 0; n < 13; n++) {
+        let a = n / 13 * 6.3 + rng() * 0.3, x = cx, y = cy;
+        ctx.lineWidth = 0.8 + rng() * 1.4; ctx.beginPath(); ctx.moveTo(x, y);
+        for (let k = 0; k < 6; k++) { a += (rng() - 0.5) * 0.5; x += Math.cos(a) * 22; y += Math.sin(a) * 22; ctx.lineTo(x, y); }
+        ctx.stroke();
+      }
+      for (const r of [10, 24, 44]) {                      // rings round the point of impact
+        ctx.lineWidth = 1; ctx.beginPath();
+        for (let k = 0; k <= 12; k++) ctx.lineTo(cx + Math.cos(k / 12 * 6.3) * r * (0.8 + rng() * 0.4), cy + Math.sin(k / 12 * 6.3) * r * (0.8 + rng() * 0.4));
+        ctx.stroke();
+      }
+    }),
   };
   return taxiTextures;
 }
 
 /**
  * @returns the model's group (facing +z) and the parts that move or change: wheels to spin,
- * steerPivots to steer, tailLights to brighten when braking, and paint, bumpers and headlights
- * for showing damage.
+ * steerPivots to steer, tailLights to brighten when braking, and paint, bumpers, headlights and
+ * scars (taxi only: [{mesh, from}], shown once that share of health is gone) for showing damage.
  */
 export function buildCar({ color = 0xffc21a, type = 'sedan', taxi = false } = {}) {
   const body = BODIES[type];
@@ -155,8 +196,9 @@ export function buildCar({ color = 0xffc21a, type = 'sedan', taxi = false } = {}
     }
   });
 
+  const scars = [];
   if (taxi) {
-    const { sign, checker } = taxiDecals();
+    const { sign, checker, scratches, dent, crack } = taxiDecals();
     const signMat = new THREE.MeshStandardMaterial({ map: sign, emissive: 0xffe9a0, emissiveMap: sign, emissiveIntensity: 0.55 });
     group.add(mesh(new THREE.BoxGeometry(0.62, 0.2, 0.24), signMat, 0, body.roof.y + 0.14, body.roof.z));
     const stripe = new THREE.MeshStandardMaterial({ map: checker, roughness: 0.5 });
@@ -166,8 +208,22 @@ export function buildCar({ color = 0xffc21a, type = 'sedan', taxi = false } = {}
       strip.castShadow = false;
       group.add(strip);
     }
+    // damage decals, laid just proud of the panels and switched on by vehicle.js as health drops
+    const scar = (from, map, w, h, x, y, z, rx, ry) => {
+      const m = mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshStandardMaterial({ map, transparent: true, depthWrite: false, roughness: 0.7 }), x, y, z);
+      m.rotation.set(rx, ry, 0); m.castShadow = false; m.visible = false;
+      group.add(m);
+      scars.push({ mesh: m, from });
+    };
+    const side = WIDTH / 2 + 0.012, quarter = Math.PI / 2;
+    scar(0.1, scratches, 1.7, 0.36, side, 0.56, 1.1, 0, quarter);              // right front wing
+    scar(0.25, dent, 1.2, 1.0, 0, 0.9, 1.52, -quarter + 0.078, 0);             // bonnet
+    scar(0.4, crack, 1.5, 0.74, 0, 1.18, 0.685, -0.915, 0);                    // windscreen
+    scar(0.5, scratches, 1.9, 0.4, -side, 0.58, -0.9, 0, -quarter);            // left rear door
+    scar(0.65, dent, 0.9, 0.5, -side, 0.6, 1.3, 0, -quarter);                  // left front wing
+    scar(0.75, scratches, 1.6, 0.34, side, 0.6, -1.1, 0, quarter);             // right rear door
   }
-  return { group, wheels, steerPivots, tailLights, paint, frontBumper, rearBumper, headlights, frontZ, rearZ };
+  return { group, wheels, steerPivots, tailLights, paint, frontBumper, rearBumper, headlights, scars, frontZ, rearZ };
 }
 
 const SKIN = [0xf1c9a5, 0xd9a577, 0xa8703f, 0x7a4a2a, 0xf6d7bd];

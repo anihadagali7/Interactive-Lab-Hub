@@ -19,7 +19,7 @@ const DAY = [
   [24, 0x060a1a, 0x162040, 0x8fa6ff, 0.3, 0.68],
 ];
 const OVERCAST_TOP = new THREE.Color(0x6f7b88), OVERCAST_HORIZON = new THREE.Color(0xaeb8c2);
-const DRY_ROAD = new THREE.Color(0x41464d), WET_ROAD = new THREE.Color(0x2a2e34);
+const DRY_ROAD = new THREE.Color(0x5a606a), WET_ROAD = new THREE.Color(0x2a2e34);
 const RAIN_DROPS = 1500, RAIN_BOX = 56, RAIN_HEIGHT = 26, RAIN_SPEED = 32;
 const clamp01 = v => Math.max(0, Math.min(1, v));
 

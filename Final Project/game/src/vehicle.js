@@ -1,7 +1,9 @@
-// The taxi's condition. Crashes take health off; the damage shows on the model (soot, a
-// crooked then missing bumper, dead headlights, smoke, flames) and slows the car down.
+// The taxi's condition. Crashes take health off; the damage shows on the model (scratches, dents,
+// a cracked windscreen, soot, a crooked then missing bumper, dead headlights, a sagging corner,
+// smoke, flames) and makes the car slower, looser and crooked to steer.
 import * as THREE from 'three';
 import { repairCost } from './scoring.js';
+import { damageHandling } from './car.js';
 
 const SOOT = new THREE.Color(0x3a3530);
 
@@ -13,14 +15,22 @@ export class Vehicle {
     this.cleanPaint = model.paint.color.clone();
     this.smokeClock = 0;
     this.bumperShed = false;
+    this.side = 1;                 // which way the bent steering pulls: -1 left, 1 right
   }
 
-  /** Top-speed multiplier: a badly damaged engine is slower. */
-  get power() { return this.health > 50 ? 1 : this.health > 25 ? 0.85 : 0.7; }
+  /** {power, grip, pull} for the car's physics; pull is signed, positive to the right. */
+  get handling() {
+    const h = damageHandling(this.health);
+    h.pull *= this.side;
+    return h;
+  }
+  /** Body roll in radians: a badly damaged car sags onto the corner it pulls toward. */
+  get sag() { return -this.side * 0.045 * Math.max(0, Math.min(1, (50 - this.health) / 50)); }
 
   /** @returns true if this blow wrecked the car */
   hurt(points) {
     if (this.health <= 0 || points <= 0) return false;
+    if (this.health === 100) this.side = Math.random() < 0.5 ? -1 : 1;
     this.health = Math.max(0, this.health - points);
     this.look();
     return this.health === 0;
@@ -47,6 +57,7 @@ export class Vehicle {
       lamp.material.emissiveIntensity = dead ? 0 : 1;
       lamp.material.color.setHex(dead ? 0x4a4a4a : 0xfff6d5);
     });
+    for (const scar of m.scars) scar.mesh.visible = wear >= scar.from;
     if (m.frontBumper.visible) this.bumperShed = false;
   }
 
@@ -62,7 +73,7 @@ export class Vehicle {
       this.debris.fling(loose, car.vx * 0.6, 2.5, car.vz * 0.6, { radius: 0.12 });
     }
     if (wear < 0.4) return;
-    this.smokeClock += dt * (2 + wear * 16);
+    this.smokeClock += dt * (1 + wear * 9);
     for (; this.smokeClock > 1; this.smokeClock -= 1) {
       const x = car.x + car.fx * 1.5, z = car.z + car.fz * 1.5;
       this.particles.smoke(x, groundY + 1, z, wear > 0.7 ? 0x2e2c2a : 0xb9b9b9, 0.35 + wear * 0.35);
