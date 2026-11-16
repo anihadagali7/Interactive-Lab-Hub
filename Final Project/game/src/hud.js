@@ -193,8 +193,10 @@ export class Hud {
     if (!objective) return;
     $('objective').classList.toggle('dropoff', objective.kind === 'dropoff');
     $('objective-title').textContent = objective.title;
+    $('objective-arrow').hidden = !objective.target;
+    if (!objective.target) { $('objective-detail').textContent = objective.detail || ''; return; }
     const dx = objective.target.x - car.x, dz = objective.target.z - car.z;
-    $('objective-detail').textContent = objective.detail || fmtDistance(Math.hypot(dx, dz));
+    $('objective-detail').textContent = fmtDistance(Math.hypot(dx, dz));
     const ahead = dx * car.fx + dz * car.fz, right = -dx * car.fz + dz * car.fx;
     $('objective-arrow').style.transform = `rotate(${Math.atan2(right, ahead) * 180 / Math.PI - 90}deg)`;
   }

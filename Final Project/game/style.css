@@ -81,10 +81,6 @@ kbd {
 
 #minimap-wrap { position: absolute; left: 16px; bottom: 16px; width: 220px; height: 220px; }
 #minimap { width: 220px; height: 220px; border-radius: 50%; border: 3px solid rgba(16, 22, 30, 0.9); box-shadow: 0 4px 18px rgba(0, 0, 0, 0.35); }
-#compass {
-  position: absolute; left: 50%; top: 50%; width: 22px; height: 22px; margin: -11px; border-radius: 50%;
-  background: #10161e; color: #ff6b6b; font: 700 12px/22px sans-serif; text-align: center;
-}
 
 #dash { right: 16px; bottom: 16px; width: 200px; }
 #speed { display: flex; align-items: baseline; gap: 6px; }
@@ -120,3 +116,4 @@ button#go-online {
 .mini-stars { color: var(--taxi); letter-spacing: 2px; }
 #rating-fare { font-size: 18px; font-weight: 700; }
 .star-off { color: rgba(255, 255, 255, 0.22); }
+.star-half { background: linear-gradient(90deg, var(--taxi) 50%, rgba(255, 255, 255, 0.22) 50%); -webkit-background-clip: text; background-clip: text; color: transparent; }

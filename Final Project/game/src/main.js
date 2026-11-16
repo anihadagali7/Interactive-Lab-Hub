@@ -1,10 +1,15 @@
-// Boots the game and runs the frame loop: input -> physics -> world -> camera -> draw.
+// Boots the game and runs the frame loop: input -> physics -> traffic -> rides -> camera -> draw.
 import * as THREE from 'three';
 import { input, attachKeyboard } from './input.js';
-import { Car, TOP_SPEED, NITRO_SPEED, impactSeverity } from './car.js';
+import { Car, TOP_SPEED, impactSeverity } from './car.js';
 import { buildWorld } from './world.js';
 import { buildCar } from './models.js';
-import { roadPos, LANE_OUTER } from './layout.js';
+import { roadPos, LANE_OUTER, N, PITCH } from './layout.js';
+import { Hud } from './hud.js';
+import { Audio } from './audio.js';
+import { Chat } from './chat.js';
+import { Rides } from './rides.js';
+import { Traffic } from './traffic.js';
 
 const canvas = document.getElementById('view');
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
@@ -36,15 +41,27 @@ const taxi = buildCar({ taxi: true });
 const taxiRoot = new THREE.Group();        // position and heading; the model inside leans and pitches
 taxiRoot.add(taxi.group);
 scene.add(taxiRoot);
+// right-hand lane of a central north-south road, facing south
+car.place(roadPos(3) - LANE_OUTER, (roadPos(2) + roadPos(3)) / 2, 0);
 
-function spawn() {
-  // right-hand lane of a central north-south road, facing south
-  car.place(roadPos(3) - LANE_OUTER, (roadPos(2) + roadPos(3)) / 2, 0);
-}
-spawn();
+// ---- everyone else on the road
+const TRAFFIC_COLORS = [0xd9483b, 0x3b7dd9, 0xf2f2f2, 0x2f3542, 0x4caf6e, 0x9b59b6, 0xe08a2e, 0x8fa3b8, 0x1f8a8a, 0xc9b28a];
+const TRAFFIC_TYPES = ['sedan', 'sedan', 'sedan', 'van', 'pickup'];
+const pickFrom = list => list[Math.floor(Math.random() * list.length)];
+const traffic = new Traffic(22, Math.random, car, () => {
+  const model = buildCar({ color: pickFrom(TRAFFIC_COLORS), type: pickFrom(TRAFFIC_TYPES) });
+  scene.add(model.group);
+  return model.group;
+});
+
+const hud = new Hud(world);
+const audio = new Audio();
+const chat = new Chat(hud, input, audio);
+const rides = new Rides({ scene, car, hud, chat, audio, input });
 
 const game = {
   state: 'menu',              // menu | playing | paused
+  manual: false,              // true: the frame loop only draws, and tests call tick() themselves
   time: 0,
   cameraMode: 0,
   cameraYaw: 0,
@@ -52,6 +69,7 @@ const game = {
   lean: 0,
   pitch: 0,
   lastForward: 0,
+  impactCooldown: 0,
 };
 
 // ---- camera
@@ -74,47 +92,53 @@ function updateCamera(dt) {
   const mode = CAMERAS[game.cameraMode];
   game.cameraYaw += angleDelta(car.yaw, game.cameraYaw) * (1 - Math.exp(-5 * dt));
   const sx = Math.sin(game.cameraYaw), sz = Math.cos(game.cameraYaw);
-  const boost = car.boosting ? 1 : 0;
   // pull the camera in if a building would sit between it and the car
   let back = mode.back + Math.abs(car.forwardSpeed) * 0.06;
   while (back > 3.5 && (world.blocked(car.x - sx * back, car.z - sz * back) || world.blocked(car.x - sx * back * 0.6, car.z - sz * back * 0.6))) back -= 0.75;
   camera.position.set(car.x - sx * back, game.groundY + mode.up, car.z - sz * back);
   lookAt.set(car.x + car.fx * mode.ahead, game.groundY + 1.3, car.z + car.fz * mode.ahead);
   camera.lookAt(lookAt);
-  const fov = 62 + 5 * Math.min(1, car.speed / TOP_SPEED) + 12 * boost;
+  const fov = 62 + 5 * Math.min(1, car.speed / TOP_SPEED) + (car.boosting ? 12 : 0);
   camera.fov += (fov - camera.fov) * (1 - Math.exp(-4 * dt));
   camera.updateProjectionMatrix();
 }
 
 // ---- one step of the game
 const STEP = 1 / 120;
-function stepPhysics(dt) {
-  const surface = world.surfaceAt(car.x, car.z);
+
+function stepPhysics(dt, circles) {
   car.update(dt, {
     steer: input.steer,
     drive: input.drive,
     handbrake: input.isDown('handbrake'),
     nitro: input.isDown('nitro'),
-  }, surface.drag);
-  const hit = car.collide(world.boxes, world.circles);
+  }, world.surfaceAt(car.x, car.z).drag);
+  const hit = car.collide(world.boxes, circles);
   if (hit.speed > 0) onImpact(hit);
 }
 
-let impactCooldown = 0;
 function onImpact(hit) {
+  if (hit.circle?.car) traffic.bump(hit.circle.car);
   const severity = impactSeverity(hit.speed);
-  if (!severity || impactCooldown > 0) return;
-  impactCooldown = 0.5;
-  for (const fn of impactListeners) fn(severity, hit);
+  if (!severity || game.impactCooldown > 0) return;
+  game.impactCooldown = 0.5;
+  audio.thud(severity);
+  rides.onImpact(severity);
 }
-const impactListeners = [];
 
 function tick(dt) {
   game.time += dt;
+  traffic.update(dt, game.state === 'menu' ? { x: 1e6, z: 1e6 } : car);
   if (game.state === 'playing') {
-    impactCooldown -= dt;
-    for (let left = dt; left > 1e-6; left -= STEP) stepPhysics(Math.min(STEP, left));
-    for (const fn of tickListeners) fn(dt);
+    game.impactCooldown -= dt;
+    const circles = world.circles.concat(traffic.circles);
+    for (let left = dt; left > 1e-6; left -= STEP) stepPhysics(Math.min(STEP, left), circles);
+    rides.update(dt);
+    hud.setDash(car);
+    hud.setObjective(rides.objective, car);
+    hud.drawMaps({ car, route: rides.routePoints, pickup: rides.pickup, dropoff: rides.dropoff, traffic: traffic.cars });
+    hud.tick(dt);
+    audio.setEngine(Math.min(1.4, car.speed / TOP_SPEED), Math.max(0, input.drive), car.boosting);
   }
   world.update(dt);
 
@@ -138,7 +162,6 @@ function tick(dt) {
   sun.target.position.set(car.x, 0, car.z);
   updateCamera(dt);
 }
-const tickListeners = [];
 
 function resize() {
   renderer.setSize(window.innerWidth, window.innerHeight, false);
@@ -152,7 +175,7 @@ let last = performance.now();
 function frame(now) {
   const dt = Math.min(0.05, (now - last) / 1000);
   last = now;
-  if (game.state !== 'paused') tick(dt);
+  if (game.state !== 'paused' && !game.manual) tick(dt);
   renderer.render(scene, camera);
   requestAnimationFrame(frame);
 }
@@ -162,15 +185,22 @@ attachKeyboard();
 input.onPress('camera', () => { game.cameraMode = (game.cameraMode + 1) % CAMERAS.length; });
 input.onPress('reset', () => {
   if (game.state !== 'playing') return;
-  // back onto the nearest lane, facing the way the road runs
-  const k = Math.round((car.x - roadPos(0)) / (roadPos(1) - roadPos(0)));
-  car.place(roadPos(Math.max(0, Math.min(6, k))) - LANE_OUTER, car.z, 0);
+  // back into the right-hand lane of the nearest north-south road, facing south
+  const k = Math.max(0, Math.min(N, Math.round((car.x - roadPos(0)) / PITCH)));
+  const j = Math.max(0, Math.min(N - 1, Math.floor((car.z - roadPos(0)) / PITCH)));
+  car.place(roadPos(k) - LANE_OUTER, roadPos(j) + PITCH / 2, 0);
+  game.cameraYaw = 0;
 });
 input.onPress('pause', () => {
   if (game.state === 'menu') return;
   game.state = game.state === 'paused' ? 'playing' : 'paused';
   document.getElementById('paused').hidden = game.state !== 'paused';
+  if (game.state === 'paused') audio.silenceEngine();
 });
+input.onPress('map', () => { if (game.state === 'playing') hud.toggle('bigmap'); });
+input.onPress('help', () => { if (game.state !== 'menu') hud.toggle('help'); });
+input.on('horn', down => audio.horn(down && game.state === 'playing'));
+input.onPress('mute', () => hud.toast(audio.toggleMute() ? 'Sound off' : 'Sound on', 1.5));
 
 function goOnline() {
   if (game.state !== 'menu') return;
@@ -178,13 +208,13 @@ function goOnline() {
   game.cameraYaw = car.yaw;
   document.getElementById('start').hidden = true;
   document.getElementById('hud').hidden = false;
-  for (const fn of startListeners) fn();
+  audio.start();
+  rides.start();
 }
-const startListeners = [];
 document.getElementById('go-online').addEventListener('click', goOnline);
 input.onPress('accept', goOnline);
 
 // Handles for the browser console and for automated checks.
-window.game = { game, car, world, input, scene, camera, renderer, tick, goOnline, impactListeners, tickListeners, startListeners };
+window.game = { game, car, world, input, scene, camera, renderer, tick, goOnline, rides, traffic, hud, chat, audio };
 
 requestAnimationFrame(frame);
