@@ -1,7 +1,7 @@
 """Checks for the bridge's pure parts. Runs anywhere: python3 -m unittest test_bridge"""
 import unittest
 
-from bridge import HOLD, OneButton, to_axis
+from bridge import HOLD, AcceptButton, DeclineButton, OneButton, to_axis
 
 
 class AxisTest(unittest.TestCase):
@@ -33,6 +33,20 @@ class ButtonTest(unittest.TestCase):
         self.assertEqual(b.update(False, HOLD + 2), [('cancel', False)])
         self.assertEqual(b.update(True, 10.0), [], 'next press starts fresh')
         self.assertEqual(b.update(False, 10.1), [('accept', True), ('accept', False)])
+
+
+class TwoButtonTest(unittest.TestCase):
+    def test_accept_follows_the_button(self):
+        b = AcceptButton()
+        self.assertEqual(b.update(True, 0), [('accept', True)])
+        self.assertEqual(b.update(True, 1), [])
+        self.assertEqual(b.update(False, 2), [('accept', False)])
+
+    def test_decline_declines_at_once_and_holds_cancel(self):
+        b = DeclineButton()
+        self.assertEqual(b.update(True, 0), [('decline', True), ('decline', False), ('cancel', True)])
+        self.assertEqual(b.update(True, 3), [])
+        self.assertEqual(b.update(False, 4), [('cancel', False)])
 
 
 if __name__ == '__main__':

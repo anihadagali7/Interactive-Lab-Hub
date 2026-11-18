@@ -154,7 +154,13 @@ screen, and if the Pi drops out the taxi lets go of the controls and the game ke
 | Part | Address | Does |
 |---|---|---|
 | Qwiic Joystick | 0x20 | Steer and drive. Click for nitro. |
-| Qwiic Button | 0x6F | Tap: accept a ride, continue. Hold: decline a request, or keep holding (about 1.5 s) to cancel a ride. Its LED pulses while a request waits and stays lit on the rating card. |
+| Green Qwiic Button | 0x6F | Accept a ride, continue past the rating card. Its LED pulses while a request waits and stays lit on the rating card. |
+| Red Qwiic Button | 0x5B | Decline a request. Hold it for a second to cancel a ride. Its LED pulses while a request waits. |
+
+With only one button connected, that button does both jobs: tap to accept, hold to decline or cancel.
+Two Qwiic Buttons both ship at 0x6F, so the red one was moved to 0x5B (only it connected, then
+`QwiicButton(0x6F).set_I2C_address(0x5B)`; the change is stored on the button).
+Restart the bridge after changing the wiring: `bash ~/taxi-controller/restart.sh`.
 
 Browsers only start sound after a click or key on the page, so if the Pi's button starts the
 game, the sound comes on at the first click or key press.

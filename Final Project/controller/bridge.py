@@ -1,6 +1,6 @@
 """Five Star Taxi controller bridge. Runs on the Raspberry Pi.
 
-Reads the Qwiic Joystick and Qwiic Button about 60 times a second and streams them to the game
+Reads the Qwiic Joystick and Qwiic Buttons about 60 times a second and streams them to the game
 in the laptop's browser as server-sent events. The game posts back to light the button's LED.
 Standard library only, plus the SparkFun Qwiic packages already in the Lab 4 venv.
 
@@ -24,11 +24,13 @@ PORT = 8765
 RATE = 60                      # hardware reads per second
 DEADZONE = 0.08                # share of travel ignored around the centre
 HOLD = 0.5                     # seconds the button is held before a tap becomes a hold
+ACCEPT_ADDRESS = 0x6F          # green button, the factory address
+DECLINE_ADDRESS = 0x5B         # red button, moved off the factory address (see the game README)
 
 # How the joystick sits in the controller. Check with --test: pushing right should give steer > 0,
 # pushing forward should give drive > 0. Flip or swap here if not.
 SWAP_XY = False
-FLIP_X = False
+FLIP_X = True
 FLIP_Y = False
 
 
@@ -67,36 +69,75 @@ class OneButton:
         return events
 
 
+class DeclineButton:
+    """Button 2. Pressing it declines a request, and holding it holds 'cancel' (the game cancels
+    a ride once cancel has been held for a second)."""
+
+    def __init__(self):
+        self.down = False
+
+    def update(self, pressed, now):
+        if pressed == self.down:
+            return []
+        self.down = pressed
+        return [('decline', True), ('decline', False), ('cancel', True)] if pressed else [('cancel', False)]
+
+
+class AcceptButton:
+    """Button 1 when there is a button 2: every press is 'accept'."""
+
+    def __init__(self):
+        self.down = False
+
+    def update(self, pressed, now):
+        if pressed == self.down:
+            return []
+        self.down = pressed
+        return [('accept', pressed)]
+
+
 class Hardware:
     def __init__(self):
         import qwiic_button
         import qwiic_joystick
         self.stick = qwiic_joystick.QwiicJoystick()
-        self.button = qwiic_button.QwiicButton()
+        self.button = qwiic_button.QwiicButton(ACCEPT_ADDRESS)
         if not self.stick.connected or not self.button.begin():
             sys.exit('Joystick (0x20) or button (0x6F) not found on the I2C bus.')
+        self.second = qwiic_button.QwiicButton(DECLINE_ADDRESS)
+        if not self.second.begin():
+            self.second = None
+            print('Only one button found: tap to accept, hold to decline or cancel.')
         self.stick.begin()
         # the resting position, read at start: do not touch the stick while the bridge starts
         xs, ys = zip(*[(self.stick.horizontal, self.stick.vertical) for _ in range(8)])
         self.centre = (sum(xs) / 8, sum(ys) / 8)
-        self.button.LED_off()
+        for b in self.lights:
+            b.LED_off()
+
+    @property
+    def lights(self):
+        return [b for b in (self.button, self.second) if b]
 
     def read(self):
-        """@returns steer, drive, joystick clicked, button pressed"""
+        """@returns steer, drive, joystick clicked, buttons pressed (one or two of them)"""
         x, y = self.stick.horizontal, self.stick.vertical
         cx, cy = self.centre
         if SWAP_XY:
             x, y, cx, cy = y, x, cy, cx
         return (to_axis(x, cx, FLIP_X), to_axis(y, cy, FLIP_Y),
-                self.stick.button == 0, self.button.is_button_pressed())
+                self.stick.button == 0,
+                [b.is_button_pressed() for b in self.lights])
 
     def led(self, state):
-        if state == 'pulse':
-            self.button.LED_config(200, 1000, 300)       # brightness, cycle ms, off ms
-        elif state == 'on':
-            self.button.LED_on(200)
-        else:
-            self.button.LED_off()
+        """'pulse' (a request is waiting: both buttons), 'on' (the rating card: accept only) or 'off'"""
+        for k, b in enumerate(self.lights):
+            if state == 'pulse':
+                b.LED_config(200, 1000, 300)             # brightness, cycle ms, off ms
+            elif state == 'on' and k == 0:
+                b.LED_on(200)
+            else:
+                b.LED_off()
 
 
 class Bridge:
@@ -114,7 +155,8 @@ class Bridge:
                 q.put(data)
 
     def run(self):
-        main, nitro = OneButton(), False
+        roles = [AcceptButton(), DeclineButton()] if self.hw.second else [OneButton()]
+        nitro = False
         while True:
             start = time.monotonic()
             try:
@@ -130,8 +172,9 @@ class Bridge:
             if clicked != nitro:
                 nitro = clicked
                 self.send({'button': 'nitro', 'down': nitro})
-            for name, down in main.update(pressed, start):
-                self.send({'button': name, 'down': down})
+            for role, down_now in zip(roles, pressed):
+                for name, down in role.update(down_now, start):
+                    self.send({'button': name, 'down': down})
             time.sleep(max(0, 1 / RATE - (time.monotonic() - start)))
 
 
@@ -198,7 +241,7 @@ def test(hw):
     print('Move the stick and press things. Ctrl+C to stop.')
     while True:
         steer, drive, clicked, pressed = hw.read()
-        print(f'\rsteer {steer:+.2f}  drive {drive:+.2f}  click {clicked!s:5}  button {pressed!s:5}', end='', flush=True)
+        print(f'\rsteer {steer:+.2f}  drive {drive:+.2f}  click {clicked!s:5}  buttons {pressed}', end='', flush=True)
         time.sleep(0.05)
 
 
