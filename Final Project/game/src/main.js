@@ -19,6 +19,7 @@ import { Props, PROP_TYPES, placeStreetFurniture } from './props.js';
 import { decorateRoads } from './roads.js';
 import { Vehicle } from './vehicle.js';
 import { Atmosphere } from './weather.js';
+import { connectPi } from './pi.js';
 
 const canvas = document.getElementById('view');
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
@@ -258,6 +259,7 @@ function tick(dt) {
     props.update(dt, car);
     vehicle.update(dt, car, game.groundY);
     rides.update(dt);
+    pi.led(rides.state === 'request' ? 'pulse' : rides.state === 'rating' ? 'on' : 'off');   // the button glows when it has something to do
     hud.setDash(car, vehicle.health);
     hud.setObjective(rides.objective, car);
     hud.drawMaps({ car, route: rides.routePoints, pickup: rides.pickup, dropoff: rides.dropoff, traffic: traffic.cars });
@@ -312,6 +314,10 @@ function frame(now) {
 
 // ---- controls that are not driving
 attachKeyboard();
+const pi = connectPi(input, text => hud.toast(text, 2.5));
+// Sound may only start after a click or key on the page. If the Pi's button started the game,
+// the sound waits for the first one.
+for (const kind of ['pointerdown', 'keydown']) window.addEventListener(kind, () => audio.ctx?.resume(), { capture: true });
 input.onPress('camera', () => { game.cameraMode = (game.cameraMode + 1) % CAMERAS.length; });
 input.onPress('reset', () => {
   if (game.state !== 'playing') return;
@@ -347,6 +353,6 @@ document.getElementById('go-online').addEventListener('click', goOnline);
 input.onPress('accept', goOnline);
 
 // Handles for the browser console and for automated checks.
-window.game = { game, car, world, input, scene, camera, renderer, tick, goOnline, rides, traffic, crowd, props, vehicle, particles, atmosphere, hud, chat, audio };
+window.game = { game, car, world, input, scene, camera, renderer, tick, goOnline, pi, rides, traffic, crowd, props, vehicle, particles, atmosphere, hud, chat, audio };
 
 requestAnimationFrame(frame);

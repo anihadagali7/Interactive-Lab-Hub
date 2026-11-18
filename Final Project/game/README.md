@@ -125,6 +125,7 @@ All the numbers are in `src/scoring.js` and `src/props.js`.
 | `src/hud.js` | HUD panels, minimap, city map |
 | `src/audio.js` | All sound, synthesised in the browser |
 | `src/input.js` | Every control goes through here |
+| `src/pi.js` | The link to the Pi controller |
 | `test/` | Tests for layout, routing, scoring, driving, traffic, signals, pedestrians |
 
 The files with no rendering code (`layout`, `scoring`, `car`, `traffic`, `signals`, `pedestrians`)
@@ -132,10 +133,34 @@ are the ones with tests. Everything visual was checked by eye in the browser.
 
 ## Connecting the Pi
 
-The game does not talk to the Pi yet. Two seams are ready for it.
+The Pi reads the controller and streams it to the game over Wi-Fi. The keyboard keeps working
+alongside it.
 
-**Controls.** Every control goes through two functions in `src/input.js`. The keyboard calls
-them today; a WebSocket or MQTT listener for the Pi would call the same ones.
+**On the Pi** (`Final Project/controller/bridge.py`, copied to `~/taxi-controller/` on the Pi):
+
+```bash
+cd ~/taxi-controller
+~/Interactive-Lab-Hub/"Lab 4"/.venv/bin/python bridge.py
+```
+
+Leave the joystick untouched while it starts: it reads the resting position then. `--test` prints
+what the controls read instead, for checking directions (`FLIP_X`, `FLIP_Y`, `SWAP_XY` at the top
+of the file fix them). Standard library only, plus the SparkFun Qwiic packages in the Lab 4 venv.
+
+**In the game:** open http://localhost:5173/?pi=10.56.129.250 (the Pi's address). It is remembered,
+so later reloads reconnect by themselves; `?pi=off` forgets it. "Controller connected" shows on
+screen, and if the Pi drops out the taxi lets go of the controls and the game keeps reconnecting.
+
+| Part | Address | Does |
+|---|---|---|
+| Qwiic Joystick | 0x20 | Steer and drive. Click for nitro. |
+| Qwiic Button | 0x6F | Tap: accept a ride, continue. Hold: decline a request, or keep holding (about 1.5 s) to cancel a ride. Its LED pulses while a request waits and stays lit on the rating card. |
+
+Browsers only start sound after a click or key on the page, so if the Pi's button starts the
+game, the sound comes on at the first click or key press.
+
+**Adding controls.** Every control goes through two functions in `src/input.js`; the bridge's
+messages call them via `src/pi.js`.
 
 ```js
 input.axis('steer', v)        // -1 (full left) to 1 (full right): joystick X
@@ -162,7 +187,7 @@ one of those, not from a network message.
 
 ## Not done yet
 
-- Pi controller and voice, as above.
+- Voice, as above. The rotary encoder, proximity sensor, microphone and speaker are not connected.
 - The rotary encoder as a radio dial. There is no radio yet.
 - The servo star gauge and the proximity sensor. Neither is connected.
 - Roads are a square grid: no curves, hills or bridges.
