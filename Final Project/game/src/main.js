@@ -8,7 +8,7 @@ import { roadPos, LANE_OUTER, N, PITCH, mulberry32 } from './layout.js';
 import { Hud } from './hud.js';
 import { Audio } from './audio.js';
 import { Chat } from './chat.js';
-import { Rides } from './rides.js';
+import { Rides, REQUEST_SECONDS, MAX_DAMAGE } from './rides.js';
 import { Traffic } from './traffic.js';
 import { RoadRules } from './signals.js';
 import { SignalView } from './signalView.js';
@@ -303,11 +303,38 @@ function resize() {
 window.addEventListener('resize', resize);
 resize();
 
+/** What the controller's screen shows (controller/meter.py draws it). */
+function meterState() {
+  if (game.state === 'menu') return { mode: 'menu' };
+  const s = rides.stats, r = rides.request;
+  const ratings = s.ratings, round = (v, step) => +(Math.round(v / step) * step).toFixed(2);
+  const state = {
+    mode: game.state === 'paused' ? 'paused' : rides.state,
+    earned: round(s.earned, 0.01),
+    rating: ratings.length ? round(ratings.reduce((a, b) => a + b, 0) / ratings.length, 0.01) : null,
+    rides: s.rides,
+    clock: atmosphere.clock,
+  };
+  if (r) Object.assign(state, { rider: r.rider.name, pickup: r.pickup.name, dropoff: r.dropoff.name, fare: r.fare });
+  switch (rides.state) {
+    case 'request': state.left = round(Math.max(0, rides.timer / REQUEST_SECONDS), 0.05); break;
+    case 'toPickup': state.seconds = Math.floor(rides.waitSeconds); break;
+    case 'inRide':
+      state.seconds = Math.floor(rides.tripSeconds);
+      state.par = Math.round(rides.par);
+      state.comfort = round(Math.max(0, 1 - (rides.trip.damage + rides.trip.rules * 0.5) / MAX_DAMAGE), 0.05);
+      break;
+    case 'rating': Object.assign(state, { overall: rides.lastResult?.overall ?? 0, pay: round(rides.lastPay ?? 0, 0.01) }); break;
+  }
+  return state;
+}
+
 let last = performance.now();
 function frame(now) {
   const dt = Math.min(0.05, (now - last) / 1000);
   last = now;
   if (game.state !== 'paused' && !game.manual) tick(dt);
+  pi.meter(meterState());
   renderer.render(scene, camera);
   requestAnimationFrame(frame);
 }
@@ -353,6 +380,6 @@ document.getElementById('go-online').addEventListener('click', goOnline);
 input.onPress('accept', goOnline);
 
 // Handles for the browser console and for automated checks.
-window.game = { game, car, world, input, scene, camera, renderer, tick, goOnline, pi, rides, traffic, crowd, props, vehicle, particles, atmosphere, hud, chat, audio };
+window.game = { game, car, world, input, scene, camera, renderer, tick, goOnline, pi, meterState, rides, traffic, crowd, props, vehicle, particles, atmosphere, hud, chat, audio };
 
 requestAnimationFrame(frame);

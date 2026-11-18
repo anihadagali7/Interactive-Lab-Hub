@@ -1,8 +1,9 @@
 """Five Star Taxi controller bridge. Runs on the Raspberry Pi.
 
 Reads the Qwiic Joystick and Qwiic Buttons about 60 times a second and streams them to the game
-in the laptop's browser as server-sent events. The game posts back to light the button's LED.
-Standard library only, plus the SparkFun Qwiic packages already in the Lab 4 venv.
+in the laptop's browser as server-sent events. The game posts back to light the buttons' LEDs and
+to show its state on the Mini PiTFT, drawn as a taxi meter by meter.py. Needs the SparkFun Qwiic
+packages, Pillow and adafruit-circuitpython-rgb-display (all in the Lab 4 venv).
 
     python bridge.py           serve on port 8765
     python bridge.py --test    print what the controls read, to check the joystick's directions
@@ -12,9 +13,11 @@ Endpoints (CORS open, so a page served from the laptop can use them):
                    {"axis": {"steer": -1..1, "drive": -1..1}}   +steer = right, +drive = forward
                    {"button": name, "down": true|false}
     POST /led      body "pulse", "on" or "off"
+    POST /meter    body JSON: what the controller's screen shows (see meter.py's SAMPLES)
 """
 import json
 import queue
+import socket
 import sys
 import threading
 import time
@@ -103,7 +106,7 @@ class Hardware:
         self.stick = qwiic_joystick.QwiicJoystick()
         self.button = qwiic_button.QwiicButton(ACCEPT_ADDRESS)
         if not self.stick.connected or not self.button.begin():
-            sys.exit('Joystick (0x20) or button (0x6F) not found on the I2C bus.')
+            raise RuntimeError('Joystick (0x20) or green button (0x6F) not found on the I2C bus.')
         self.second = qwiic_button.QwiicButton(DECLINE_ADDRESS)
         if not self.second.begin():
             self.second = None
@@ -140,6 +143,34 @@ class Hardware:
                 b.LED_off()
 
 
+class Screen:
+    """The Mini PiTFT on the GPIO header, wired as in the course's setup (CS D5, DC D25, backlight D22)."""
+
+    def __init__(self):
+        import board
+        import digitalio
+        from adafruit_rgb_display import st7789
+        self.disp = st7789.ST7789(board.SPI(), cs=digitalio.DigitalInOut(board.D5), dc=digitalio.DigitalInOut(board.D25),
+                                  rst=None, baudrate=64000000, width=135, height=240, x_offset=53, y_offset=40)
+        self.backlight = digitalio.DigitalInOut(board.D22)
+        self.backlight.switch_to_output()
+        self.backlight.value = True
+
+    def show(self, image):
+        self.disp.image(image, 90)
+        image.save('/dev/shm/meter.png')                # a copy in memory, for checking the screen over SSH
+
+
+def address():
+    """This Pi's address on the local network ('' if it has none). Sends nothing."""
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+            s.connect(('10.255.255.255', 1))
+            return s.getsockname()[0]
+    except OSError:
+        return ''
+
+
 class Bridge:
     def __init__(self, hw):
         self.hw = hw
@@ -147,6 +178,31 @@ class Bridge:
         self.clients = []
         self.axes = {'steer': 0.0, 'drive': 0.0}
         self.i2c = threading.Lock()                     # the LED is set from the web thread
+        self.meter, self.meter_at = None, 0             # the game's last state for the screen, and when it came
+
+    def screen(self):
+        """Redraw the screen whenever what it should show changes."""
+        import meter
+        try:
+            screen = Screen()
+        except Exception as e:                           # no screen, or its libraries are missing
+            print('No screen:', e, file=sys.stderr)
+            return
+        shown, ip, ip_at = None, address(), time.monotonic()
+        while True:
+            now = time.monotonic()
+            if now - ip_at > 10:
+                ip, ip_at = address(), now
+            # the game counts as here while it is connected and has sent its state recently
+            state = self.meter if self.clients and now - self.meter_at < 3 else None
+            key = json.dumps([state, ip])
+            if key != shown:
+                shown = key
+                try:
+                    screen.show(meter.draw(state, ip))
+                except OSError as e:
+                    print('screen failed:', e, file=sys.stderr)
+            time.sleep(0.1)
 
     def send(self, message):
         data = json.dumps(message)
@@ -154,7 +210,21 @@ class Bridge:
             for q in self.clients:
                 q.put(data)
 
+    def find_hardware(self):
+        """Wait for the joystick and buttons: a loose cable should not stop the screen."""
+        said = False
+        while self.hw is None:
+            try:
+                self.hw = Hardware()
+                print(f'Controls found. Joystick centre {self.hw.centre[0]:.0f}, {self.hw.centre[1]:.0f}.')
+            except (RuntimeError, OSError) as e:
+                if not said:
+                    print(e, 'Looking again every 2 s.', file=sys.stderr)
+                    said = True
+                time.sleep(2)
+
     def run(self):
+        self.find_hardware()
         roles = [AcceptButton(), DeclineButton()] if self.hw.second else [OneButton()]
         nitro = False
         while True:
@@ -220,11 +290,21 @@ def make_handler(bridge):
                 print('game disconnected')
 
         def do_POST(self):
+            if self.path == '/meter':
+                try:
+                    bridge.meter = json.loads(self.rfile.read(min(int(self.headers.get('Content-Length', 0)), 4096)))
+                    bridge.meter_at = time.monotonic()
+                    self.send_response(204)
+                except ValueError:
+                    self.send_response(400)
+                self.cors()
+                self.end_headers()
+                return
             if self.path != '/led':
                 self.send_error(404)
                 return
             state = self.rfile.read(min(int(self.headers.get('Content-Length', 0)), 16)).decode().strip()
-            if state in ('pulse', 'on', 'off'):
+            if state in ('pulse', 'on', 'off') and bridge.hw:
                 with bridge.i2c:
                     bridge.hw.led(state)
             self.send_response(204 if state in ('pulse', 'on', 'off') else 400)
@@ -246,19 +326,21 @@ def test(hw):
 
 
 if __name__ == '__main__':
-    hw = Hardware()
     if '--test' in sys.argv:
+        hw = Hardware()
         try:
             test(hw)
         except KeyboardInterrupt:
             print()
         sys.exit()
-    bridge = Bridge(hw)
+    bridge = Bridge(None)
     threading.Thread(target=bridge.run, daemon=True).start()
+    threading.Thread(target=bridge.screen, daemon=True).start()
     server = ThreadingHTTPServer(('0.0.0.0', PORT), make_handler(bridge))
     server.daemon_threads = True
-    print(f'Controller bridge on port {PORT}. Joystick centre {hw.centre[0]:.0f}, {hw.centre[1]:.0f}.')
+    print(f'Controller bridge on port {PORT}.')
     try:
         server.serve_forever()
     except KeyboardInterrupt:
-        hw.led('off')
+        if bridge.hw:
+            bridge.hw.led('off')

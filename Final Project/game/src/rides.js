@@ -13,7 +13,7 @@ import { RIDERS, farewell } from './chat.js';
 import { buildPerson, skinTones, CAR_WIDTH } from './models.js';
 import { SIDEWALK_H } from './world.js';
 
-const REQUEST_SECONDS = 14;
+export const REQUEST_SECONDS = 14;
 const ARRIVE_RADIUS = 9;          // metres from the kerb stop
 const ARRIVE_SPEED = 1.2;         // m/s: the car has to be all but stopped
 const BOARD_SECONDS = 3.1;         // getting in, or out: walk, door, sit, door
@@ -23,7 +23,7 @@ const STAND = [CAR_WIDTH / 2 + 0.6, 0, -1.2], SEAT = [0.42, -0.4, -0.8];
 const HAIR = [0x2a211c, 0x4a2f1b, 0x111111, 0x8a5a2b, 0xb9b9b9];
 const CANCEL_HOLD = 1;            // seconds X must be held
 const RATING_SECONDS = 12;
-const MAX_DAMAGE = 4;             // safety stars lost that empty the comfort bar
+export const MAX_DAMAGE = 4;             // safety stars lost that empty the comfort bar
 
 const pick = list => list[Math.floor(Math.random() * list.length)];
 const dist = (a, b) => Math.hypot(a.x - b.x, a.z - b.z);
@@ -453,6 +453,7 @@ export class Rides {
     const result = rateTrip({ seconds: this.tripSeconds, par: this.par, damage: t.damage, rulePenalty: t.rules, chatScores: this.chatScores });
     const { fare, tip } = fareFor(r.tripLength, result.overall);
     const repair = this.vehicle.repair();
+    this.lastPay = fare + tip - repair;
     this.stats.earned += fare + tip - repair;
     this.stats.ratings.push(result.overall);
     this.stats.rides++;

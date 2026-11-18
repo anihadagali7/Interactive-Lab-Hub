@@ -162,6 +162,17 @@ Two Qwiic Buttons both ship at 0x6F, so the red one was moved to 0x5B (only it c
 `QwiicButton(0x6F).set_I2C_address(0x5B)`; the change is stored on the button).
 Restart the bridge after changing the wiring: `bash ~/taxi-controller/restart.sh`.
 
+**The controller's screen** (the Mini PiTFT on the Pi) works like a taxi meter: earnings, rating and
+clock on top, then FOR HIRE, the ride request with its fare, who to pick up, the trip timer against
+par with a comfort bar (HIRED), and the rating with the pay. With no game connected it shows the
+address to put after `?pi=`. The game sends its state a few times a second (`meterState()` in
+`src/main.js`); `controller/meter.py` draws it, and `python meter.py` writes a preview of every screen.
+It replaces the course's `piscreen` start-up service, which has to be off:
+`sudo systemctl disable --now piscreen`.
+
+The bridge starts even if the joystick or a button is unplugged, and keeps looking for them every
+two seconds, so a loose cable never takes the screen down.
+
 Browsers only start sound after a click or key on the page, so if the Pi's button starts the
 game, the sound comes on at the first click or key press.
 
